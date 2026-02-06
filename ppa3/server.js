@@ -27,19 +27,16 @@ function validateSlotTimes(startTime, endTime) {
         return { ok: false, message: "endTime is required" };
     }
     // TODO (bonus): verify endTime is after startTime
-    if (startTime > endTime) {
-        return {ok: false, message: "endTime is before startTime"};
+    if (startTime >= endTime) {
+        return {ok: false, message: "End time should be after start time"};
     }
     return { ok: true, message: "" };
 }
 
 function isDuplicate(startTime, endTime) {
-    // TODO (bonus): return true if a slot with the same times already exists
-    for (let i = 0; i < slots.length; i++) {
-        const curr_slot = slots[i];
-        
-        // Check if both start and end times match
-        if (curr_slot.startTime === startTime && curr_slot.endTime === endTime) {
+    for (let i = 0, len = slots.length; i < len; i++) {
+        const slot = slots[i];
+        if (slot.startTime === startTime && slot.endTime === endTime) {
             return true;
         }
     }
