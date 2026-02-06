@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+    <!-- <head>This is the provider page</head> -->
+    <body>
+        <div id="slot-list"></div>
+
+        <script>
+            async function loadSlots() {
+                const response = await fetch("/api/slots");
+                const data = await response.json();
+
+                console.log(data);
+                const container = document.getElementById("slot-list");
+                container.innerHTML = `<h1>The following are the available slots<h1>`;
+
+                data.forEach(slot => {
+                    const element = document.createElement("div");
+                    element.innerHTML = `
+                        <ul>
+                            <li>id: ${slot.id}</li>
+                            <li>start time: ${slot.startTime}</li>
+                            <li>end time: ${slot.endTime}</li>
+                            <li>status: ${slot.status}</li>
+                        </ul>
+                    `;
+
+                    container.appendChild(element);
+                })
+
+            }
+
+            loadSlots();
+        </script>
+
+    </body>
+</html>
