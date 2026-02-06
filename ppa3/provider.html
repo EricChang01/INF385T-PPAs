@@ -58,4 +58,27 @@
 
     <form id="slotForm">
         <label for="startTime">Start time (example: 2026-03-01T09:00)</label>
-        <input id="startTime" type="text" placeholder="YYYY-MM
+        <input id="startTime" type="text" placeholder="YYYY-MM-DDTHH:MM">
+
+        <label for="endTime">End time (example: 2026-03-01T09:30)</label>
+        <input id="endTime" type="text" placeholder="YYYY-MM-DDTHH:MM">
+
+        <button id="createBtn" type="submit">Create slot</button>
+    </form>
+
+    <h2>Current slots</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Start time</th>
+                <th>End time</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody id="slotTableBody">
+            </tbody>
+    </table>
+
+    <script src="provider.js"></script>
+</body>
+</html>
