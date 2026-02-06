@@ -45,16 +45,40 @@ function submitNewSlot(startTime, endTime) {
     const requestUrl = "/api/slots?startTime=" + encodeURIComponent(startTime) +
                        "&endTime=" + encodeURIComponent(endTime);
 
+    const submitBtn = document.getElementById("createBtn");
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Processing...";
+
     xhr.open("POST", requestUrl);
 
     xhr.onload = function () {
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Create slot";
         // TODO: parse JSON response safely
-        
+        const data = parseJsonSafely(xhr.responseText);
+        if (!data.ok) {
+            setMessage("Cannot parse json from server", "error");
+            return;
+        }
         // TODO: if status 201, addSlotRow(slot) and show a success message
+        if (xhr.status === 201) {
+            addSlotRow(data.value);
+            setMessage("Slot added", "ok")
+        }
         
         // TODO: if status 400 or 409, show the server error message
+        else if (xhr.status === 400 || xhr.status === 409) {
+            setMessage("Server error: " + data.value.error, "error");
+        }
         
         // TODO: otherwise, show a generic error message
+        else {
+            setMessage("Server error", "error");
+        }
+
+        document.getElementById("startTime").value = "";
+        document.getElementById("endTime").value = "";
+        document.getElementById("startTime").focus();
     };
 
     xhr.send();
