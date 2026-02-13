@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>School Court Reservation System</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+    <h1>Multi-Court Reservation System</h1>
+    
+    <p id="message"></p>
+
+    <form id="reservationForm">
+        <label for="courtType">Court Type</label>
+        <select id="courtType">
+            <option value="">-- Select Court Type --</option>
+            <option value="Basketball">Basketball</option>
+            <option value="Tennis">Tennis</option>
+        </select>
+
+        <label for="startTime">Start time (example: 2026-03-01T09:00)</label>
+        <input id="startTime" type="text" placeholder="YYYY-MM-DDTHH:MM">
+
+        <label for="endTime">End time (example: 2026-03-01T10:00)</label>
+        <input id="endTime" type="text" placeholder="YYYY-MM-DDTHH:MM">
+
+        <label for="studentId">Student ID</label>
+        <input id="studentId" type="text" placeholder="Enter your student ID">
+
+        <div class="button-group">
+            <button id="submitBtn" type="submit">Submit Reservation</button>
+            <button id="deleteBtn" type="button">Delete Reservation</button>
+        </div>
+    </form>
+
+    <h2>Basketball Court Reservations</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Start Time</th>
+                <th>End Time</th>
+                <th>Student ID</th>
+            </tr>
+        </thead>
+        <tbody id="basketballTableBody">
+        </tbody>
+    </table>
+
+    <h2>Tennis Court Reservations</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Start Time</th>
+                <th>End Time</th>
+                <th>Student ID</th>
+            </tr>
+        </thead>
+        <tbody id="tennisTableBody">
+        </tbody>
+    </table>
+
+    <script src="script.js"></script>
+</body>
+</html>
