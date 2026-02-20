@@ -41,12 +41,22 @@ function renderCalendar(rawSlots) {
   const startWeekday = firstDay.getDay(); // 0 Sunday to 6 Saturday
   const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
 
-  for (let i = 0; i < 42; i += 1) {
+  // Get today's date
+  const today = new Date();
+  const todayDay = today.getDate();
+  const todayMonth = today.getMonth() + 1;
+  const todayYear = today.getFullYear();
+
+  for (let i = 0; i < 35; i += 1) {
     const dayNumber = i - startWeekday + 1;
     const cell = document.createElement("div");
     cell.className = "dayCell";
 
     if (dayNumber >= 1 && dayNumber <= daysInMonth) {
+      if (dayNumber === todayDay && currentMonth === todayMonth && currentYear === todayYear) {
+        cell.classList.add("today");
+      }
+
       // Day label at the top of the cell
       const label = document.createElement("div");
       label.className = "dayNumber";
