@@ -47,7 +47,7 @@ function renderCalendar(rawSlots) {
   const todayMonth = today.getMonth() + 1; // getMonth is 0-indexed
   const todayYear = today.getFullYear();
 
-  for (let i = 0; i < 35; i += 1) {
+  for (let i = 0; i < 42; i += 1) {
     const dayNumber = i - startWeekday + 1;
     const cell = document.createElement("div");
     cell.className = "dayCell";
