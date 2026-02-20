@@ -41,10 +41,10 @@ function renderCalendar(rawSlots) {
   const startWeekday = firstDay.getDay(); // 0 Sunday to 6 Saturday
   const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
 
-  // Get today's date
+  // Get today's date for highlighting
   const today = new Date();
   const todayDay = today.getDate();
-  const todayMonth = today.getMonth() + 1;
+  const todayMonth = today.getMonth() + 1; // getMonth is 0-indexed
   const todayYear = today.getFullYear();
 
   for (let i = 0; i < 35; i += 1) {
@@ -53,6 +53,7 @@ function renderCalendar(rawSlots) {
     cell.className = "dayCell";
 
     if (dayNumber >= 1 && dayNumber <= daysInMonth) {
+      // Highlight today if it falls within the currently displayed month
       if (dayNumber === todayDay && currentMonth === todayMonth && currentYear === todayYear) {
         cell.classList.add("today");
       }
@@ -63,6 +64,7 @@ function renderCalendar(rawSlots) {
       label.textContent = String(dayNumber);
       cell.appendChild(label);
 
+      // Count how many slots fall on this day
       let slotCount = 0;
       for (let j = 0; j < rawSlots.length; j += 1) {
         const datePart = rawSlots[j].startTime.split("T")[0];
@@ -72,6 +74,7 @@ function renderCalendar(rawSlots) {
         }
       }
 
+      // Show the count only if there is at least one slot
       if (slotCount > 0) {
         const count = document.createElement("div");
         count.className = "slotCount";
@@ -85,19 +88,20 @@ function renderCalendar(rawSlots) {
 
         // Extract yyyy-mm-dd and compare the day number
         const datePart = slot.startTime.split("T")[0];
-        const slotDay = Number(datePart.split("-")[2]); // was "\n-\n", which is a bug
+        const slotDay = Number(datePart.split("-")[2]);
 
         if (slotDay === dayNumber) {
           const item = document.createElement("div");
           item.className = slot.status === "booked" ? "slotBooked" : "slotAvail";
 
-        item.addEventListener("click", function () {
+          // Click the slot to toggle between available and booked
+          item.addEventListener("click", function () {
             const newStatus = slot.status === "booked" ? "available" : "booked";
             slot.status = newStatus;
             item.className = newStatus === "booked" ? "slotBooked" : "slotAvail";
-        });
+          });
 
-          // Display just the clock times to keep it readable
+          // Display just the clock times to keep the cell readable
           const startClock = slot.startTime.split("T")[1];
           const endClock = slot.endTime.split("T")[1];
 
@@ -146,7 +150,7 @@ function setMonthTitle(month, year) {
     names[month - 1] + " " + String(year);
 }
 
-// Button click creates a slot
+// Button click: validate inputs then create a slot
 document.getElementById("createSlotButton").addEventListener("click", function () {
   const startTime = document.getElementById("startTimeInput").value;
   const endTime = document.getElementById("endTimeInput").value;
@@ -178,8 +182,7 @@ document.getElementById("createSlotButton").addEventListener("click", function (
 
   if (slotMonth !== currentMonth || slotYear !== currentYear) {
     showMessage(
-      "Time entered are not within current month(" +
-      currentMonth + "/" + currentYear + ")",
+      "Time entered is not within the current month (" + currentMonth + "/" + currentYear + ")",
       "error"
     );
     return;
