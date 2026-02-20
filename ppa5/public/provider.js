@@ -68,7 +68,7 @@ function renderCalendar(rawSlots) {
         const datePart = rawSlots[j].startTime.split("T")[0];
         const slotDay = Number(datePart.split("-")[2]);
         if (slotDay === dayNumber) {
-        slotCount += 1;
+          slotCount += 1;
         }
       }
 
@@ -89,7 +89,13 @@ function renderCalendar(rawSlots) {
 
         if (slotDay === dayNumber) {
           const item = document.createElement("div");
-          item.className = "slotItem";
+          item.className = slot.status === "booked" ? "slotBooked" : "slotAvail";
+
+        item.addEventListener("click", function () {
+            const newStatus = slot.status === "booked" ? "available" : "booked";
+            slot.status = newStatus;
+            item.className = newStatus === "booked" ? "slotBooked" : "slotAvail";
+        });
 
           // Display just the clock times to keep it readable
           const startClock = slot.startTime.split("T")[1];

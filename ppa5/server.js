@@ -63,7 +63,7 @@ const server = http.createServer(function (req, res) {
       return;
     }
 
-    const slot = { id: slots.length + 1, startTime, endTime };
+    const slot = { id: slots.length + 1, startTime, endTime, status: "available" };
     slots.push(slot);
     sendJson(res, 201, slot);
     return;
