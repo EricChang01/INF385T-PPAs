@@ -41,3 +41,17 @@
 .today {
   outline: 3px solid #1976d2;
 }
+
+.ok {
+  border: 1px solid #2e7d32;
+  background-color: #e8f5e9;
+  color: #2e7d32;
+  padding: 8px;
+}
+
+.error {
+  border: 1px solid #c62828;
+  background-color: #ffebee;
+  color: #c62828;
+  padding: 8px;
+}

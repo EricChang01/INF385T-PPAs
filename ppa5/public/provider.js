@@ -2,7 +2,7 @@
 // Provider calendar UI for PPA 5
 // GET and POST only
 
-let currentMonth = 3; // 1 to 12
+let currentMonth = 2; // 1 to 12
 let currentYear = 2026;
 
 // Run once when the page loads
@@ -118,5 +118,40 @@ function setMonthTitle(month, year) {
 document.getElementById("createSlotButton").addEventListener("click", function () {
   const startTime = document.getElementById("startTimeInput").value;
   const endTime = document.getElementById("endTimeInput").value;
+
+  if (!startTime && !endTime) {
+    showMessage("Please enter a start time and end time", "error");
+    return;
+  }
+
+  if (!startTime) {
+    showMessage("Please enter a start time", "error");
+    return;
+  }
+
+  if (!endTime) {
+    showMessage("Please enter an end time", "error");
+    return;
+  }
+
+  if (endTime <= startTime) {
+    showMessage("End time must be after start time", "error");
+    return;
+  }
+
+  // Parse the month and year from the start time and compare to the displayed month
+  const datePart = startTime.split("T")[0];
+  const slotMonth = Number(datePart.split("-")[1]);
+  const slotYear = Number(datePart.split("-")[0]);
+
+  if (slotMonth !== currentMonth || slotYear !== currentYear) {
+    showMessage(
+      "Time entered are not within current month(" +
+      currentMonth + "/" + currentYear + ")",
+      "error"
+    );
+    return;
+  }
+
   sendCreateSlot(startTime, endTime);
 });
