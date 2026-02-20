@@ -2,6 +2,9 @@
 
 const http = require("http");
 const fs = require("fs");
+const url = require("url");
+
+const slots = [];
 
 function serveFile(res, filePath, contentType) {
   fs.readFile(filePath, (err, content) => {
@@ -15,7 +18,16 @@ function serveFile(res, filePath, contentType) {
   });
 }
 
+function sendJson(res, statusCode, payload) {
+  res.writeHead(statusCode, { "Content-Type": "application/json" });
+  res.end(JSON.stringify(payload));
+}
+
 const server = http.createServer(function (req, res) {
+  const parsedUrl = url.parse(req.url, true);
+  const path = parsedUrl.pathname;
+  const query = parsedUrl.query;
+
   if (req.url === "/") {
     serveFile(res, "./public/provider.html", "text/html");
     return;
@@ -26,8 +38,34 @@ const server = http.createServer(function (req, res) {
     return;
   }
 
-  if (req.url === "/script.js") {
-    serveFile(res, "./public/script.js", "application/javascript");
+  if (req.url === "/provider.js") {
+    serveFile(res, "./public/provider.js", "application/javascript");
+    return;
+  }
+
+  // GET: Return all slots
+  if (req.method === "GET" && path === "/api/slots") {
+    sendJson(res, 200, slots);
+    return;
+  }
+
+  // POST: Create a new slot
+  if (req.method === "POST" && path === "/api/slots") {
+    const { startTime, endTime } = query;
+
+    if (!startTime || !endTime) {
+      sendJson(res, 400, { error: "startTime and endTime are required" });
+      return;
+    }
+
+    if (startTime >= endTime) {
+      sendJson(res, 400, { error: "End time must be after start time" });
+      return;
+    }
+
+    const slot = { id: slots.length + 1, startTime, endTime };
+    slots.push(slot);
+    sendJson(res, 201, slot);
     return;
   }
 
