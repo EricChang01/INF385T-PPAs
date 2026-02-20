@@ -63,6 +63,22 @@ function renderCalendar(rawSlots) {
       label.textContent = String(dayNumber);
       cell.appendChild(label);
 
+      let slotCount = 0;
+      for (let j = 0; j < rawSlots.length; j += 1) {
+        const datePart = rawSlots[j].startTime.split("T")[0];
+        const slotDay = Number(datePart.split("-")[2]);
+        if (slotDay === dayNumber) {
+        slotCount += 1;
+        }
+      }
+
+      if (slotCount > 0) {
+        const count = document.createElement("div");
+        count.className = "slotCount";
+        count.textContent = slotCount + " slot" + (slotCount === 1 ? "" : "s");
+        cell.appendChild(count);
+      }
+
       // Insert all matching slots for this day
       for (let j = 0; j < rawSlots.length; j += 1) {
         const slot = rawSlots[j];
