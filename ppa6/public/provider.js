@@ -1,0 +1,193 @@
+// public/provider.js
+// Provider calendar UI for PPA 5
+// GET and POST only
+
+let currentMonth = 2; // 1 to 12
+let currentYear = 2026;
+
+// Run once when the page loads
+refreshCalendar();
+
+// Show a user-facing message
+function showMessage(text, kind) {
+  const el = document.getElementById("message");
+  el.textContent = text;
+  el.className = kind;
+}
+
+// GET all slots then re-render the month view
+function refreshCalendar() {
+  const xhr = new XMLHttpRequest();
+  xhr.open("GET", "/api/slots");
+  xhr.onload = function () {
+    if (xhr.status === 200) {
+      const rawSlots = JSON.parse(xhr.responseText);
+      renderCalendar(rawSlots);
+    } else {
+      showMessage("GET failed " + String(xhr.status), "error");
+    }
+  };
+  xhr.send();
+}
+
+// Render the month grid, then insert slot items into each day cell
+function renderCalendar(rawSlots) {
+  setMonthTitle(currentMonth, currentYear);
+
+  const grid = document.getElementById("calendarGrid");
+  grid.innerHTML = "";
+
+  const firstDay = new Date(currentYear, currentMonth - 1, 1);
+  const startWeekday = firstDay.getDay(); // 0 Sunday to 6 Saturday
+  const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
+
+  // Get today's date for highlighting
+  const today = new Date();
+  const todayDay = today.getDate();
+  const todayMonth = today.getMonth() + 1; // getMonth is 0-indexed
+  const todayYear = today.getFullYear();
+
+  for (let i = 0; i < 42; i += 1) {
+    const dayNumber = i - startWeekday + 1;
+    const cell = document.createElement("div");
+    cell.className = "dayCell";
+
+    if (dayNumber >= 1 && dayNumber <= daysInMonth) {
+      // Highlight today if it falls within the currently displayed month
+      if (dayNumber === todayDay && currentMonth === todayMonth && currentYear === todayYear) {
+        // cell.classList.add("today");
+        cell.className += " today";
+      }
+
+      // Day label at the top of the cell
+      const label = document.createElement("div");
+      label.className = "dayNumber";
+      label.textContent = String(dayNumber);
+      cell.appendChild(label);
+
+      // Count how many slots fall on this day
+      let slotCount = 0;
+      for (let j = 0; j < rawSlots.length; j += 1) {
+        const datePart = rawSlots[j].startTime.split("T")[0];
+        const slotDay = Number(datePart.split("-")[2]);
+        if (slotDay === dayNumber) {
+          slotCount += 1;
+        }
+      }
+
+      // Show the count only if there is at least one slot
+      if (slotCount > 0) {
+        const count = document.createElement("div");
+        count.className = "slotCount";
+        count.textContent = slotCount + " slot" + (slotCount === 1 ? "" : "s");
+        cell.appendChild(count);
+      }
+
+      // Insert all matching slots for this day
+      for (let j = 0; j < rawSlots.length; j += 1) {
+        const slot = rawSlots[j];
+
+        // Extract yyyy-mm-dd and compare the day number
+        const datePart = slot.startTime.split("T")[0];
+        const slotDay = Number(datePart.split("-")[2]);
+
+        if (slotDay === dayNumber) {
+          const item = document.createElement("div");
+          item.className = slot.status === "booked" ? "slotBooked" : "slotAvail";
+
+          // Click the slot to toggle between available and booked
+          item.addEventListener("click", function () {
+            const newStatus = slot.status === "booked" ? "available" : "booked";
+            slot.status = newStatus;
+            item.className = newStatus === "booked" ? "slotBooked" : "slotAvail";
+          });
+
+          // Display just the clock times to keep the cell readable
+          const startClock = slot.startTime.split("T")[1];
+          const endClock = slot.endTime.split("T")[1];
+
+          const text = document.createElement("span");
+          text.textContent = startClock + " to " + endClock;
+          item.appendChild(text);
+          cell.appendChild(item);
+        }
+      }
+    } else {
+      // Cells outside the current month remain empty
+      cell.className += " empty";
+    }
+
+    grid.appendChild(cell);
+  }
+}
+
+// Send POST then refresh the calendar on success
+function sendCreateSlot(startTime, endTime) {
+  const xhr = new XMLHttpRequest();
+  const path =
+    "/api/slots?startTime=" + encodeURIComponent(startTime) +
+    "&endTime=" + encodeURIComponent(endTime);
+
+  xhr.open("POST", path);
+  xhr.onload = function () {
+    if (xhr.status === 201) {
+      showMessage("Slot created", "ok");
+      refreshCalendar();
+    } else {
+      const data = JSON.parse(xhr.responseText || "{}");
+      showMessage(data.error || "Create failed", "error");
+    }
+  };
+  xhr.send();
+}
+
+// Update the month title header
+function setMonthTitle(month, year) {
+  const names = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December",
+  ];
+  document.getElementById("monthTitle").textContent =
+    names[month - 1] + " " + String(year);
+}
+
+// Button click: validate inputs then create a slot
+document.getElementById("createSlotButton").addEventListener("click", function () {
+  const startTime = document.getElementById("startTimeInput").value;
+  const endTime = document.getElementById("endTimeInput").value;
+
+  if (!startTime && !endTime) {
+    showMessage("Please enter a start time and end time", "error");
+    return;
+  }
+
+  if (!startTime) {
+    showMessage("Please enter a start time", "error");
+    return;
+  }
+
+  if (!endTime) {
+    showMessage("Please enter an end time", "error");
+    return;
+  }
+
+  if (endTime <= startTime) {
+    showMessage("End time must be after start time", "error");
+    return;
+  }
+
+  // Parse the month and year from the start time and compare to the displayed month
+  const datePart = startTime.split("T")[0];
+  const slotMonth = Number(datePart.split("-")[1]);
+  const slotYear = Number(datePart.split("-")[0]);
+
+  if (slotMonth !== currentMonth || slotYear !== currentYear) {
+    showMessage(
+      "Time entered is not within the current month (" + currentMonth + "/" + currentYear + ")",
+      "error"
+    );
+    return;
+  }
+
+  sendCreateSlot(startTime, endTime);
+});
