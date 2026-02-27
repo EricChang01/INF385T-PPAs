@@ -11,16 +11,21 @@
     <div id="message"></div>
 
     <section id="createSlotPanel">
-      <h2>Create a slot</h2>
+      <h2>Add Appointment</h2>
       <label>
-        Start time ISO
-        <input id="startTimeInput" placeholder="2026-03-01T09:00">
+        Start time
+        <input type="datetime-local" id="startTimeInput">
       </label>
       <label>
-        End time ISO
-        <input id="endTimeInput" placeholder="2026-03-01T09:30">
+        End time
+        <input type="datetime-local" id="endTimeInput">
       </label>
-      <button id="createSlotButton">Create slot</button>
+      <button id="createAppmtButton">Add appointment</button>
+    </section>
+
+    <section>
+      <h2>All appointments</h2>
+      <div id="calendar"></div>
     </section>
 
     <section>

@@ -1,6 +1,8 @@
 // public/provider.js
-// Provider calendar UI for PPA 5
-// GET and POST only
+// Provider calendar UI for PPA6
+// GET, POST, and DELETE for appointments
+
+"use strict";
 
 let currentMonth = 2; // 1 to 12
 let currentYear = 2026;
@@ -15,23 +17,24 @@ function showMessage(text, kind) {
   el.className = kind;
 }
 
-// GET all slots then re-render the month view
+// GET all appointments then re-render the month grid and the appointment list
 function refreshCalendar() {
   const xhr = new XMLHttpRequest();
-  xhr.open("GET", "/api/slots");
+  xhr.open("GET", "/appointments");
   xhr.onload = function () {
     if (xhr.status === 200) {
-      const rawSlots = JSON.parse(xhr.responseText);
-      renderCalendar(rawSlots);
+      const appointments = JSON.parse(xhr.responseText);
+      renderCalendar(appointments);
+      renderAppointments(appointments);
     } else {
-      showMessage("GET failed " + String(xhr.status), "error");
+      showMessage("GET failed: " + String(xhr.status), "error");
     }
   };
   xhr.send();
 }
 
-// Render the month grid, then insert slot items into each day cell
-function renderCalendar(rawSlots) {
+// Render the month grid, inserting appointment items into each day cell
+function renderCalendar(appointments) {
   setMonthTitle(currentMonth, currentYear);
 
   const grid = document.getElementById("calendarGrid");
@@ -44,7 +47,7 @@ function renderCalendar(rawSlots) {
   // Get today's date for highlighting
   const today = new Date();
   const todayDay = today.getDate();
-  const todayMonth = today.getMonth() + 1; // getMonth is 0-indexed
+  const todayMonth = today.getMonth() + 1;
   const todayYear = today.getFullYear();
 
   for (let i = 0; i < 42; i += 1) {
@@ -53,66 +56,34 @@ function renderCalendar(rawSlots) {
     cell.className = "dayCell";
 
     if (dayNumber >= 1 && dayNumber <= daysInMonth) {
-      // Highlight today if it falls within the currently displayed month
       if (dayNumber === todayDay && currentMonth === todayMonth && currentYear === todayYear) {
         cell.classList.add("today");
       }
 
-      // Day label at the top of the cell
       const label = document.createElement("div");
       label.className = "dayNumber";
       label.textContent = String(dayNumber);
       cell.appendChild(label);
 
-      // Count how many slots fall on this day
-      let slotCount = 0;
-      for (let j = 0; j < rawSlots.length; j += 1) {
-        const datePart = rawSlots[j].startTime.split("T")[0];
-        const slotDay = Number(datePart.split("-")[2]);
-        if (slotDay === dayNumber) {
-          slotCount += 1;
-        }
-      }
+      // Insert all appointments that fall on this day and month
+      for (let j = 0; j < appointments.length; j += 1) {
+        const appt = appointments[j];
+        const datePart = appt.startTime.split("T")[0];
+        const apptYear = Number(datePart.split("-")[0]);
+        const apptMonth = Number(datePart.split("-")[1]);
+        const apptDay = Number(datePart.split("-")[2]);
 
-      // Show the count only if there is at least one slot
-      if (slotCount > 0) {
-        const count = document.createElement("div");
-        count.className = "slotCount";
-        count.textContent = slotCount + " slot" + (slotCount === 1 ? "" : "s");
-        cell.appendChild(count);
-      }
-
-      // Insert all matching slots for this day
-      for (let j = 0; j < rawSlots.length; j += 1) {
-        const slot = rawSlots[j];
-
-        // Extract yyyy-mm-dd and compare the day number
-        const datePart = slot.startTime.split("T")[0];
-        const slotDay = Number(datePart.split("-")[2]);
-
-        if (slotDay === dayNumber) {
+        if (apptDay === dayNumber && apptMonth === currentMonth && apptYear === currentYear) {
           const item = document.createElement("div");
-          item.className = slot.status === "booked" ? "slotBooked" : "slotAvail";
+          item.className = "slotAvail";
 
-          // Click the slot to toggle between available and booked
-          item.addEventListener("click", function () {
-            const newStatus = slot.status === "booked" ? "available" : "booked";
-            slot.status = newStatus;
-            item.className = newStatus === "booked" ? "slotBooked" : "slotAvail";
-          });
-
-          // Display just the clock times to keep the cell readable
-          const startClock = slot.startTime.split("T")[1];
-          const endClock = slot.endTime.split("T")[1];
-
-          const text = document.createElement("span");
-          text.textContent = startClock + " to " + endClock;
-          item.appendChild(text);
+          const startClock = appt.startTime.split("T")[1];
+          const endClock = appt.endTime.split("T")[1];
+          item.textContent = startClock + " to " + endClock;
           cell.appendChild(item);
         }
       }
     } else {
-      // Cells outside the current month remain empty
       cell.className += " empty";
     }
 
@@ -120,24 +91,63 @@ function renderCalendar(rawSlots) {
   }
 }
 
-// Send POST then refresh the calendar on success
-function sendCreateSlot(startTime, endTime) {
-  const xhr = new XMLHttpRequest();
-  const path =
-    "/api/slots?startTime=" + encodeURIComponent(startTime) +
-    "&endTime=" + encodeURIComponent(endTime);
+// Render the full appointments array as cards with delete buttons
+function renderAppointments(appointmentsArray) {
+  const calendar = document.getElementById("calendar");
+  calendar.innerHTML = "";
 
-  xhr.open("POST", path);
+  for (let i = 0; i < appointmentsArray.length; i++) {
+    const appt = appointmentsArray[i];
+
+    const card = document.createElement("div");
+    card.className = "appointmentCard";
+
+    // Show start and end datetime, replacing T with a space for readability
+    const startFormatted = appt.startTime.replace("T", " ");
+    const endFormatted = appt.endTime.replace("T", " ");
+    card.innerText = startFormatted + " to " + endFormatted;
+
+    const del = document.createElement("button");
+    del.innerText = "Delete";
+    del.onclick = function () {
+      // DELETE /appointments/:index then refresh
+      deleteAppointment(i);
+    };
+
+    card.appendChild(del);
+    calendar.appendChild(card);
+  }
+}
+
+// Send DELETE then refresh everything on success
+function deleteAppointment(index) {
+  const xhr = new XMLHttpRequest();
+  xhr.open("DELETE", "/appointments/" + index);
   xhr.onload = function () {
-    if (xhr.status === 201) {
-      showMessage("Slot created", "ok");
+    if (xhr.status === 200) {
+      showMessage("Appointment deleted", "ok");
       refreshCalendar();
     } else {
-      const data = JSON.parse(xhr.responseText || "{}");
-      showMessage(data.error || "Create failed", "error");
+      showMessage("Delete failed: " + xhr.responseText, "error");
     }
   };
   xhr.send();
+}
+
+// Send POST then refresh everything on success
+function sendCreateAppointment(startTime, endTime) {
+  const xhr = new XMLHttpRequest();
+  xhr.open("POST", "/appointments");
+  xhr.setRequestHeader("Content-Type", "application/json");
+  xhr.onload = function () {
+    if (xhr.status === 201) {
+      showMessage("Appointment added", "ok");
+      refreshCalendar();
+    } else {
+      showMessage("Create failed: " + xhr.responseText, "error");
+    }
+  };
+  xhr.send(JSON.stringify({ startTime: startTime, endTime: endTime }));
 }
 
 // Update the month title header
@@ -150,35 +160,8 @@ function setMonthTitle(month, year) {
     names[month - 1] + " " + String(year);
 }
 
-// Render the full appointments array into the calendar element
-function renderAppointments(appointmentsArray) {
-  const calendar = document.getElementById("calendar");
-  calendar.innerHTML = "";
-
-  for (let i = 0; i < appointmentsArray.length; i++) {
-    const appt = appointmentsArray[i];
-
-    const card = document.createElement("div");
-    card.className = "appointmentCard";
-
-    // TODO list: decide which appointment fields to show.
-    // TODO list: decide how to format the datetime value.
-    card.innerText = "TODO";
-
-    const del = document.createElement("button");
-    del.innerText = "TODO";
-    del.onclick = function () {
-      // TODO list: call DELETE /appointments/i
-      // TODO list: then GET /appointments and re-render
-    };
-
-    card.appendChild(del);
-    calendar.appendChild(card);
-  }
-}
-
-// Button click: validate inputs then create a slot
-document.getElementById("createSlotButton").addEventListener("click", function () {
+// Button click: validate inputs then create an appointment
+document.getElementById("createAppmtButton").addEventListener("click", function () {
   const startTime = document.getElementById("startTimeInput").value;
   const endTime = document.getElementById("endTimeInput").value;
 
@@ -202,18 +185,5 @@ document.getElementById("createSlotButton").addEventListener("click", function (
     return;
   }
 
-  // Parse the month and year from the start time and compare to the displayed month
-  const datePart = startTime.split("T")[0];
-  const slotMonth = Number(datePart.split("-")[1]);
-  const slotYear = Number(datePart.split("-")[0]);
-
-  if (slotMonth !== currentMonth || slotYear !== currentYear) {
-    showMessage(
-      "Time entered is not within the current month (" + currentMonth + "/" + currentYear + ")",
-      "error"
-    );
-    return;
-  }
-
-  sendCreateSlot(startTime, endTime);
+  sendCreateAppointment(startTime, endTime);
 });

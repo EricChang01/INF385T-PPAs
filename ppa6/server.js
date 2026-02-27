@@ -7,6 +7,8 @@ const fs = require("fs");
 const DATA_FILE = "appointments.json";
 let appointments = [];
 
+// If the file does not exist or the JSON is invalid, start with an empty array.
+// Errors are logged to the console so the developer knows something went wrong.
 function loadAppointments() {
   // TODO list: decide what should happen if the file does not exist.
   // TODO list: decide what should happen if the JSON is invalid.
@@ -18,15 +20,22 @@ function loadAppointments() {
       appointments = [];
     }
   } catch (error) {
+    console.log("Could not load appointments.json, starting with empty array.");
     appointments = [];
   }
 }
 
+// Pretty-print JSON (2-space indent) so the file is human-readable.
+// If writing fails, log the error but do not crash the server.
 function saveAppointments() {
   // TODO list: decide how you want the JSON formatted (pretty vs compact).
   // TODO list: decide what to do if writing fails.
-  const text = JSON.stringify(appointments, null, 2);
-  fs.writeFileSync(DATA_FILE, text, "utf8");
+  try {
+    const text = JSON.stringify(appointments, null, 2);
+    fs.writeFileSync(DATA_FILE, text, "utf8");
+  } catch (error) {
+    console.log("Failed to save appointments.json: " + error.message);
+  }
 }
 
 function serveFile(res, filePath, contentType) {
@@ -57,7 +66,7 @@ const server = http.createServer(function (request, response) {
   const parsedUrl = url.parse(request.url, true);
 
   if (request.url === "/") {
-    serveFile(response, "./public/provider.html", "text/html");
+    serveFile(response, "./public/appointment.html", "text/html");
     return;
   }
 
@@ -77,17 +86,37 @@ const server = http.createServer(function (request, response) {
   }
 
   else if (request.method === "POST" && parsedUrl.pathname === "/appointments") {
-    // NOTE: reading the request body is event driven, but your file operations are synchronous.
     let body = "";
     request.on("data", function (chunk) {
       body += chunk;
     });
     request.on("end", function () {
       // TODO list: validate the incoming appointment fields before pushing into the array.
-      const newAppointment = JSON.parse(body);
+      let newAppointment;
+      try {
+        newAppointment = JSON.parse(body);
+      } catch (e) {
+        sendText(response, 400, "Invalid JSON");
+        return;
+      }
+
+      // Validate that startTime and endTime are present strings.
+      if (typeof newAppointment.startTime !== "string" || newAppointment.startTime === "") {
+        sendText(response, 400, "Missing or invalid startTime");
+        return;
+      }
+      if (typeof newAppointment.endTime !== "string" || newAppointment.endTime === "") {
+        sendText(response, 400, "Missing or invalid endTime");
+        return;
+      }
+      if (newAppointment.endTime <= newAppointment.startTime) {
+        sendText(response, 400, "endTime must be after startTime");
+        return;
+      }
+
       appointments.push(newAppointment);
       saveAppointments();
-      sendText(response, 200, "TODO");
+      sendText(response, 201, "Appointment added");
     });
   }
 
@@ -99,16 +128,16 @@ const server = http.createServer(function (request, response) {
     if (!Number.isNaN(index) && index >= 0 && index < appointments.length) {
       appointments.splice(index, 1);
       saveAppointments();
-      sendText(response, 200, "TODO");
+      sendText(response, 200, "Appointment deleted");
     } else {
-      sendText(response, 400, "TODO");
+      sendText(response, 400, "Invalid index");
     }
   }
 
   else {
-    sendText(response, 404, "TODO");
+    sendText(response, 404, "Not found");
   }
 });
 
 server.listen(3000);
-console.log("TODO");
+console.log("Server running at http://localhost:3000");
