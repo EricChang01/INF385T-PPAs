@@ -55,8 +55,7 @@ function renderCalendar(rawSlots) {
     if (dayNumber >= 1 && dayNumber <= daysInMonth) {
       // Highlight today if it falls within the currently displayed month
       if (dayNumber === todayDay && currentMonth === todayMonth && currentYear === todayYear) {
-        // cell.classList.add("today");
-        cell.className += " today";
+        cell.classList.add("today");
       }
 
       // Day label at the top of the cell
@@ -151,50 +150,28 @@ function setMonthTitle(month, year) {
     names[month - 1] + " " + String(year);
 }
 
+// Render the full appointments array into the calendar element
 function renderAppointments(appointmentsArray) {
   const calendar = document.getElementById("calendar");
   calendar.innerHTML = "";
+
   for (let i = 0; i < appointmentsArray.length; i++) {
     const appt = appointmentsArray[i];
+
     const card = document.createElement("div");
     card.className = "appointmentCard";
 
-    // Show name, datetime, and notes fields
-    const nameEl = document.createElement("div");
-    nameEl.textContent = "Name: " + appt.name;
-    card.appendChild(nameEl);
-
-    // Format the ISO datetime string into a readable local date and time
-    const datetimeEl = document.createElement("div");
-    datetimeEl.textContent = "When: " + new Date(appt.datetime).toLocaleString();
-    card.appendChild(datetimeEl);
-
-    if (appt.notes) {
-      const notesEl = document.createElement("div");
-      notesEl.textContent = "Notes: " + appt.notes;
-      card.appendChild(notesEl);
-    }
+    // TODO list: decide which appointment fields to show.
+    // TODO list: decide how to format the datetime value.
+    card.innerText = "TODO";
 
     const del = document.createElement("button");
-    del.innerText = "Delete";
+    del.innerText = "TODO";
     del.onclick = function () {
-      // Call DELETE /appointments/i, then GET /appointments and re-render
-      const xhr = new XMLHttpRequest();
-      xhr.open("DELETE", "/appointments/" + i);
-      xhr.onload = function () {
-        if (xhr.status === 200) {
-          const getXhr = new XMLHttpRequest();
-          getXhr.open("GET", "/appointments");
-          getXhr.onload = function () {
-            if (getXhr.status === 200) {
-              renderAppointments(JSON.parse(getXhr.responseText));
-            }
-          };
-          getXhr.send();
-        }
-      };
-      xhr.send();
+      // TODO list: call DELETE /appointments/i
+      // TODO list: then GET /appointments and re-render
     };
+
     card.appendChild(del);
     calendar.appendChild(card);
   }

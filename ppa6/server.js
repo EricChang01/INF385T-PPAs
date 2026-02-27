@@ -29,6 +29,18 @@ function saveAppointments() {
   fs.writeFileSync(DATA_FILE, text, "utf8");
 }
 
+function serveFile(res, filePath, contentType) {
+  fs.readFile(filePath, (err, content) => {
+    if (err) {
+      res.writeHead(500);
+      res.end("Server error");
+      return;
+    }
+    res.writeHead(200, { "Content-Type": contentType });
+    res.end(content);
+  });
+}
+
 function sendJson(response, statusCode, data) {
   response.writeHead(statusCode, { "Content-Type": "application/json" });
   response.end(JSON.stringify(data));
@@ -41,28 +53,46 @@ function sendText(response, statusCode, message) {
 
 loadAppointments();
 
-const server = http.createServer(function(request, response) {
+const server = http.createServer(function (request, response) {
   const parsedUrl = url.parse(request.url, true);
+
+  if (request.url === "/") {
+    serveFile(response, "./public/provider.html", "text/html");
+    return;
+  }
+
+  if (request.url === "/styles.css") {
+    serveFile(response, "./public/styles.css", "text/css");
+    return;
+  }
+
+  if (request.url === "/provider.js") {
+    serveFile(response, "./public/provider.js", "application/javascript");
+    return;
+  }
 
   if (request.method === "GET" && parsedUrl.pathname === "/appointments") {
     // TODO list: decide whether you want to return raw appointments or a wrapper object.
     sendJson(response, 200, appointments);
-  } 
+  }
+
   else if (request.method === "POST" && parsedUrl.pathname === "/appointments") {
     // NOTE: reading the request body is event driven, but your file operations are synchronous.
     let body = "";
-    request.on("data", function(chunk) {
+    request.on("data", function (chunk) {
       body += chunk;
     });
-    request.on("end", function() {
+    request.on("end", function () {
       // TODO list: validate the incoming appointment fields before pushing into the array.
       const newAppointment = JSON.parse(body);
       appointments.push(newAppointment);
       saveAppointments();
       sendText(response, 200, "TODO");
     });
-  } 
-  else if (request.method === "DELETE" && parsedUrl.pathname.startsWith("/appointments/")) {
+  }
+
+  else if (request.method === "DELETE" &&
+    parsedUrl.pathname.startsWith("/appointments/")) {
     const parts = parsedUrl.pathname.split("/");
     const index = Number(parts[2]);
     // TODO list: decide what error message to send for an invalid index.
@@ -73,7 +103,8 @@ const server = http.createServer(function(request, response) {
     } else {
       sendText(response, 400, "TODO");
     }
-  } 
+  }
+
   else {
     sendText(response, 404, "TODO");
   }
