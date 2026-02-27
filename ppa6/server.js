@@ -1,78 +1,83 @@
-// server.js
+"use strict";
 
 const http = require("http");
-const fs = require("fs");
 const url = require("url");
+const fs = require("fs");
 
-const slots = [];
+const DATA_FILE = "appointments.json";
+let appointments = [];
 
-function serveFile(res, filePath, contentType) {
-  fs.readFile(filePath, (err, content) => {
-    if (err) {
-      res.writeHead(500);
-      res.end("Server error");
-      return;
+function loadAppointments() {
+  // TODO list: decide what should happen if the file does not exist.
+  // TODO list: decide what should happen if the JSON is invalid.
+  // TODO list: decide whether to log errors to the console or stay silent.
+  try {
+    const text = fs.readFileSync(DATA_FILE, "utf8");
+    appointments = JSON.parse(text);
+    if (!Array.isArray(appointments)) {
+      appointments = [];
     }
-    res.writeHead(200, { "Content-Type": contentType });
-    res.end(content);
-  });
+  } catch (error) {
+    appointments = [];
+  }
 }
 
-function sendJson(res, statusCode, payload) {
-  res.writeHead(statusCode, { "Content-Type": "application/json" });
-  res.end(JSON.stringify(payload));
+function saveAppointments() {
+  // TODO list: decide how you want the JSON formatted (pretty vs compact).
+  // TODO list: decide what to do if writing fails.
+  const text = JSON.stringify(appointments, null, 2);
+  fs.writeFileSync(DATA_FILE, text, "utf8");
 }
 
-const server = http.createServer(function (req, res) {
-  const parsedUrl = url.parse(req.url, true);
-  const path = parsedUrl.pathname;
-  const query = parsedUrl.query;
+function sendJson(response, statusCode, data) {
+  response.writeHead(statusCode, { "Content-Type": "application/json" });
+  response.end(JSON.stringify(data));
+}
 
-  if (req.url === "/") {
-    serveFile(res, "./public/provider.html", "text/html");
-    return;
-  }
+function sendText(response, statusCode, message) {
+  response.writeHead(statusCode, { "Content-Type": "text/plain" });
+  response.end(message);
+}
 
-  if (req.url === "/styles.css") {
-    serveFile(res, "./public/styles.css", "text/css");
-    return;
-  }
+loadAppointments();
 
-  if (req.url === "/provider.js") {
-    serveFile(res, "./public/provider.js", "application/javascript");
-    return;
-  }
+const server = http.createServer(function(request, response) {
+  const parsedUrl = url.parse(request.url, true);
 
-  // GET: Return all slots
-  if (req.method === "GET" && path === "/api/slots") {
-    sendJson(res, 200, slots);
-    return;
-  }
-
-  // POST: Create a new slot
-  if (req.method === "POST" && path === "/api/slots") {
-    const { startTime, endTime } = query;
-
-    if (!startTime || !endTime) {
-      sendJson(res, 400, { error: "startTime and endTime are required" });
-      return;
+  if (request.method === "GET" && parsedUrl.pathname === "/appointments") {
+    // TODO list: decide whether you want to return raw appointments or a wrapper object.
+    sendJson(response, 200, appointments);
+  } 
+  else if (request.method === "POST" && parsedUrl.pathname === "/appointments") {
+    // NOTE: reading the request body is event driven, but your file operations are synchronous.
+    let body = "";
+    request.on("data", function(chunk) {
+      body += chunk;
+    });
+    request.on("end", function() {
+      // TODO list: validate the incoming appointment fields before pushing into the array.
+      const newAppointment = JSON.parse(body);
+      appointments.push(newAppointment);
+      saveAppointments();
+      sendText(response, 200, "TODO");
+    });
+  } 
+  else if (request.method === "DELETE" && parsedUrl.pathname.startsWith("/appointments/")) {
+    const parts = parsedUrl.pathname.split("/");
+    const index = Number(parts[2]);
+    // TODO list: decide what error message to send for an invalid index.
+    if (!Number.isNaN(index) && index >= 0 && index < appointments.length) {
+      appointments.splice(index, 1);
+      saveAppointments();
+      sendText(response, 200, "TODO");
+    } else {
+      sendText(response, 400, "TODO");
     }
-
-    if (startTime >= endTime) {
-      sendJson(res, 400, { error: "End time must be after start time" });
-      return;
-    }
-
-    const slot = { id: slots.length + 1, startTime, endTime, status: "available" };
-    slots.push(slot);
-    sendJson(res, 201, slot);
-    return;
+  } 
+  else {
+    sendText(response, 404, "TODO");
   }
-
-  res.writeHead(404);
-  res.end("Not found");
 });
 
-server.listen(3000, function () {
-  console.log("Server running on http://localhost:3000");
-});
+server.listen(3000);
+console.log("TODO");

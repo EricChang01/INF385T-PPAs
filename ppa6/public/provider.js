@@ -151,6 +151,55 @@ function setMonthTitle(month, year) {
     names[month - 1] + " " + String(year);
 }
 
+function renderAppointments(appointmentsArray) {
+  const calendar = document.getElementById("calendar");
+  calendar.innerHTML = "";
+  for (let i = 0; i < appointmentsArray.length; i++) {
+    const appt = appointmentsArray[i];
+    const card = document.createElement("div");
+    card.className = "appointmentCard";
+
+    // Show name, datetime, and notes fields
+    const nameEl = document.createElement("div");
+    nameEl.textContent = "Name: " + appt.name;
+    card.appendChild(nameEl);
+
+    // Format the ISO datetime string into a readable local date and time
+    const datetimeEl = document.createElement("div");
+    datetimeEl.textContent = "When: " + new Date(appt.datetime).toLocaleString();
+    card.appendChild(datetimeEl);
+
+    if (appt.notes) {
+      const notesEl = document.createElement("div");
+      notesEl.textContent = "Notes: " + appt.notes;
+      card.appendChild(notesEl);
+    }
+
+    const del = document.createElement("button");
+    del.innerText = "Delete";
+    del.onclick = function () {
+      // Call DELETE /appointments/i, then GET /appointments and re-render
+      const xhr = new XMLHttpRequest();
+      xhr.open("DELETE", "/appointments/" + i);
+      xhr.onload = function () {
+        if (xhr.status === 200) {
+          const getXhr = new XMLHttpRequest();
+          getXhr.open("GET", "/appointments");
+          getXhr.onload = function () {
+            if (getXhr.status === 200) {
+              renderAppointments(JSON.parse(getXhr.responseText));
+            }
+          };
+          getXhr.send();
+        }
+      };
+      xhr.send();
+    };
+    card.appendChild(del);
+    calendar.appendChild(card);
+  }
+}
+
 // Button click: validate inputs then create a slot
 document.getElementById("createSlotButton").addEventListener("click", function () {
   const startTime = document.getElementById("startTimeInput").value;
