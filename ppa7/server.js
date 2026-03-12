@@ -10,9 +10,6 @@ let appointments = [];
 // If the file does not exist or the JSON is invalid, start with an empty array.
 // Errors are logged to the console so the developer knows something went wrong.
 function loadAppointments() {
-  // TODO list: decide what should happen if the file does not exist.
-  // TODO list: decide what should happen if the JSON is invalid.
-  // TODO list: decide whether to log errors to the console or stay silent.
   try {
     const text = fs.readFileSync(DATA_FILE, "utf8");
     appointments = JSON.parse(text);
@@ -28,8 +25,6 @@ function loadAppointments() {
 // Pretty-print JSON (2-space indent) so the file is human-readable.
 // If writing fails, log the error but do not crash the server.
 function saveAppointments() {
-  // TODO list: decide how you want the JSON formatted (pretty vs compact).
-  // TODO list: decide what to do if writing fails.
   try {
     const text = JSON.stringify(appointments, null, 2);
     fs.writeFileSync(DATA_FILE, text, "utf8");
@@ -60,6 +55,109 @@ function sendText(response, statusCode, message) {
   response.end(message);
 }
 
+// Returns an error string if invalid, or null if valid.
+function validateAppointment(appt) {
+  if (typeof appt.title !== "string" || appt.title.trim() === "") {
+    return "Missing or invalid title";
+  }
+  if (typeof appt.startTime !== "string" || appt.startTime === "") {
+    return "Missing or invalid startTime";
+  }
+  if (typeof appt.endTime !== "string" || appt.endTime === "") {
+    return "Missing or invalid endTime";
+  }
+  if (appt.endTime <= appt.startTime) {
+    return "endTime must be after startTime";
+  }
+  return null;
+}
+
+// Returns true if appt overlaps an existing busy or out-of-office appointment.
+// excludeId skips the appointment being replaced so it doesn't conflict with itself.
+const checkOverlap = (appt, excludeId = null) => {
+  const blockingStatuses = ["busy", "out-of-office"];
+  const apptStatus = appt.status || "busy";
+  if (!blockingStatuses.includes(apptStatus)) {
+    return false;
+  }
+  return appointments.some(existing => {
+    if (existing.id === excludeId) return false;
+    const existingStatus = existing.status || "busy";
+    if (!blockingStatuses.includes(existingStatus)) return false;
+    return appt.startTime < existing.endTime && appt.endTime > existing.startTime;
+  });
+};
+
+function updateAppointmentFull(id, updatedAppointment) {
+  // Locate the appointment by id
+  const index = appointments.findIndex(a => a.id === id);
+  if (index === -1) {
+    return { error: "Appointment not found", status: 404 };
+  }
+
+  // Validate the full appointment object
+  const validationError = validateAppointment(updatedAppointment);
+  if (validationError) {
+    return { error: validationError, status: 400 };
+  }
+
+  // Check for overlaps, excluding the appointment being replaced
+  if (checkOverlap(updatedAppointment, id)) {
+    return { error: "Appointment overlaps with an existing busy appointment", status: 409 };
+  }
+
+  // Replace the existing object, preserving the id
+  updatedAppointment.id = id;
+  appointments[index] = updatedAppointment;
+
+  // Save updated data to appointments.json
+  saveAppointments();
+  return { data: updatedAppointment, status: 200 };
+}
+
+function updateAppointmentPartial(id, changes) {
+  // Locate the appointment by id
+  const index = appointments.findIndex(a => a.id === id);
+  if (index === -1) {
+    return { error: "Appointment not found", status: 404 };
+  }
+
+  // Merge only the provided fields with the existing appointment
+  const merged = Object.assign({}, appointments[index], changes);
+  merged.id = id;
+
+  // Validate the resulting appointment
+  const validationError = validateAppointment(merged);
+  if (validationError) {
+    return { error: validationError, status: 400 };
+  }
+
+  // Check for overlaps after the merge, excluding this appointment
+  if (checkOverlap(merged, id)) {
+    return { error: "Appointment overlaps with an existing busy appointment", status: 409 };
+  }
+
+  // Save updated data to appointments.json
+  appointments[index] = merged;
+  saveAppointments();
+  return { data: merged, status: 200 };
+}
+
+function deleteAppointment(id) {
+  // Locate the appointment by id
+  const index = appointments.findIndex(a => a.id === id);
+  if (index === -1) {
+    return { error: "Appointment not found", status: 404 };
+  }
+
+  // Remove the appointment from the array
+  appointments.splice(index, 1);
+
+  // Save updated data to appointments.json
+  saveAppointments();
+  return { status: 200 };
+}
+
 loadAppointments();
 
 const server = http.createServer(function (request, response) {
@@ -82,7 +180,6 @@ const server = http.createServer(function (request, response) {
   }
 
   if (request.method === "GET" && parsedUrl.pathname === "/appointments") {
-    // TODO list: decide whether you want to return raw appointments or a wrapper object.
     sendJson(response, 200, appointments);
   }
 
@@ -92,7 +189,6 @@ const server = http.createServer(function (request, response) {
       body += chunk;
     });
     request.on("end", function () {
-      // TODO list: validate the incoming appointment fields before pushing into the array.
       let newAppointment;
       try {
         newAppointment = JSON.parse(body);
@@ -101,37 +197,73 @@ const server = http.createServer(function (request, response) {
         return;
       }
 
-      // Validate that startTime and endTime are present strings.
-      if (typeof newAppointment.startTime !== "string" || newAppointment.startTime === "") {
-        sendText(response, 400, "Missing or invalid startTime");
-        return;
-      }
-      if (typeof newAppointment.endTime !== "string" || newAppointment.endTime === "") {
-        sendText(response, 400, "Missing or invalid endTime");
-        return;
-      }
-      if (newAppointment.endTime <= newAppointment.startTime) {
-        sendText(response, 400, "endTime must be after startTime");
+      const validationError = validateAppointment(newAppointment);
+      if (validationError) {
+        sendText(response, 400, validationError);
         return;
       }
 
+      if (checkOverlap(newAppointment)) {
+        sendText(response, 409, "Appointment overlaps with an existing busy appointment");
+        return;
+      }
+
+      newAppointment.id = String(Date.now());
       appointments.push(newAppointment);
       saveAppointments();
-      sendText(response, 201, "Appointment added");
+      sendJson(response, 201, newAppointment);
     });
   }
 
-  else if (request.method === "DELETE" &&
-    parsedUrl.pathname.startsWith("/appointments/")) {
-    const parts = parsedUrl.pathname.split("/");
-    const index = Number(parts[2]);
-    // TODO list: decide what error message to send for an invalid index.
-    if (!Number.isNaN(index) && index >= 0 && index < appointments.length) {
-      appointments.splice(index, 1);
-      saveAppointments();
-      sendText(response, 200, "Appointment deleted");
+  else if (request.method === "PUT" && parsedUrl.pathname.startsWith("/appointments/")) {
+    const id = parsedUrl.pathname.split("/")[2];
+    let body = "";
+    request.on("data", chunk => { body += chunk; });
+    request.on("end", () => {
+      let updatedAppointment;
+      try {
+        updatedAppointment = JSON.parse(body);
+      } catch (e) {
+        sendText(response, 400, "Invalid JSON");
+        return;
+      }
+      const result = updateAppointmentFull(id, updatedAppointment);
+      if (result.error) {
+        sendText(response, result.status, result.error);
+      } else {
+        sendJson(response, result.status, result.data);
+      }
+    });
+  }
+
+  else if (request.method === "PATCH" && parsedUrl.pathname.startsWith("/appointments/")) {
+    const id = parsedUrl.pathname.split("/")[2];
+    let body = "";
+    request.on("data", chunk => { body += chunk; });
+    request.on("end", () => {
+      let changes;
+      try {
+        changes = JSON.parse(body);
+      } catch (e) {
+        sendText(response, 400, "Invalid JSON");
+        return;
+      }
+      const result = updateAppointmentPartial(id, changes);
+      if (result.error) {
+        sendText(response, result.status, result.error);
+      } else {
+        sendJson(response, result.status, result.data);
+      }
+    });
+  }
+
+  else if (request.method === "DELETE" && parsedUrl.pathname.startsWith("/appointments/")) {
+    const id = parsedUrl.pathname.split("/")[2];
+    const result = deleteAppointment(id);
+    if (result.error) {
+      sendText(response, result.status, result.error);
     } else {
-      sendText(response, 400, "Invalid index");
+      sendText(response, 200, "Appointment deleted");
     }
   }
 

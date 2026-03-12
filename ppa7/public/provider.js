@@ -1,11 +1,12 @@
 // public/provider.js
-// Provider calendar UI for PPA6
-// GET, POST, and DELETE for appointments
+// Provider calendar UI for PPA7
+// Full CRUD: GET, POST, PUT, PATCH, DELETE
 
 "use strict";
 
-let currentMonth = 2; // 1 to 12
+let currentMonth = 3; // 1 to 12
 let currentYear = 2026;
+let currentAppointmentId = null;
 
 // Run once when the page loads
 refreshCalendar();
@@ -75,11 +76,16 @@ function renderCalendar(appointments) {
 
         if (apptDay === dayNumber && apptMonth === currentMonth && apptYear === currentYear) {
           const item = document.createElement("div");
-          item.className = "slotAvail";
+          item.className = "slotAvail status-" + (appt.status || "busy");
 
           const startClock = appt.startTime.split("T")[1];
-          const endClock = appt.endTime.split("T")[1];
-          item.textContent = startClock + " to " + endClock;
+          item.textContent = (appt.title || "Untitled") + " " + startClock;
+
+          // Clicking a calendar item opens the edit modal
+          item.addEventListener("click", function () {
+            openAppointmentModal(appt);
+          });
+
           cell.appendChild(item);
         }
       }
@@ -91,7 +97,7 @@ function renderCalendar(appointments) {
   }
 }
 
-// Render the full appointments array as cards with delete buttons
+// Render the full appointments array as cards with an Edit button
 function renderAppointments(appointmentsArray) {
   const calendar = document.getElementById("calendar");
   calendar.innerHTML = "";
@@ -100,54 +106,97 @@ function renderAppointments(appointmentsArray) {
     const appt = appointmentsArray[i];
 
     const card = document.createElement("div");
-    card.className = "appointmentCard";
+    card.className = "appointmentCard status-" + (appt.status || "busy");
 
-    // Show start and end datetime, replacing T with a space for readability
+    const info = document.createElement("div");
     const startFormatted = appt.startTime.replace("T", " ");
     const endFormatted = appt.endTime.replace("T", " ");
-    card.innerText = startFormatted + " to " + endFormatted;
+    info.innerHTML = "<strong>" + (appt.title || "Untitled") + "</strong> &mdash; "
+      + startFormatted + " to " + endFormatted;
+    if (appt.description) {
+      info.innerHTML += "<br><em>" + appt.description + "</em>";
+    }
+    card.appendChild(info);
 
-    const del = document.createElement("button");
-    del.innerText = "Delete";
-    del.onclick = function () {
-      // DELETE /appointments/:index then refresh
-      deleteAppointment(i);
-    };
+    const editBtn = document.createElement("button");
+    editBtn.textContent = "Edit";
+    editBtn.addEventListener("click", function () {
+      openAppointmentModal(appt);
+    });
+    card.appendChild(editBtn);
 
-    card.appendChild(del);
     calendar.appendChild(card);
   }
 }
 
-// Send DELETE then refresh everything on success
-function deleteAppointment(index) {
+// Display the modal and populate its form fields with the given appointment's data
+function openAppointmentModal(appointment) {
+  currentAppointmentId = appointment.id;
+
+  document.getElementById("modalTitle").value = appointment.title || "";
+  document.getElementById("modalDescription").value = appointment.description || "";
+  document.getElementById("modalStartTime").value = appointment.startTime || "";
+  document.getElementById("modalEndTime").value = appointment.endTime || "";
+  document.getElementById("modalStatus").value = appointment.status || "busy";
+  document.getElementById("modalAttendees").value = (appointment.attendees || []).join(", ");
+
+  // display modal dialog
+  document.getElementById("modalOverlay").style.display = "flex";
+}
+
+// Read modal form inputs and send a PUT request to replace the appointment
+function saveAppointmentChanges() {
+  // Read form inputs
+  const title = document.getElementById("modalTitle").value.trim();
+  const description = document.getElementById("modalDescription").value.trim();
+  const startTime = document.getElementById("modalStartTime").value;
+  const endTime = document.getElementById("modalEndTime").value;
+  const status = document.getElementById("modalStatus").value;
+  const attendeesRaw = document.getElementById("modalAttendees").value;
+  const attendees = attendeesRaw
+    ? attendeesRaw.split(",").map(a => a.trim()).filter(a => a)
+    : [];
+
+  // Construct updated appointment object
+  const updatedAppointment = { title, description, startTime, endTime, status, attendees };
+
+  // Send PUT request to server
   const xhr = new XMLHttpRequest();
-  xhr.open("DELETE", "/appointments/" + index);
+  xhr.open("PUT", "/appointments/" + currentAppointmentId);
+  xhr.setRequestHeader("Content-Type", "application/json");
+  xhr.onload = function () {
+    if (xhr.status === 200) {
+      showMessage("Appointment updated", "ok");
+      closeModal();
+      refreshCalendar();
+    } else {
+      showMessage("Update failed: " + xhr.responseText, "error");
+    }
+  };
+  xhr.send(JSON.stringify(updatedAppointment));
+}
+
+// Arrow function: send DELETE for the currently open appointment, then refresh
+const deleteButtonHandler = () => {
+  // Send DELETE request
+  const xhr = new XMLHttpRequest();
+  xhr.open("DELETE", "/appointments/" + currentAppointmentId);
   xhr.onload = function () {
     if (xhr.status === 200) {
       showMessage("Appointment deleted", "ok");
+      closeModal();
+      // Refresh calendar after deletion
       refreshCalendar();
     } else {
       showMessage("Delete failed: " + xhr.responseText, "error");
     }
   };
   xhr.send();
-}
+};
 
-// Send POST then refresh everything on success
-function sendCreateAppointment(startTime, endTime) {
-  const xhr = new XMLHttpRequest();
-  xhr.open("POST", "/appointments");
-  xhr.setRequestHeader("Content-Type", "application/json");
-  xhr.onload = function () {
-    if (xhr.status === 201) {
-      showMessage("Appointment added", "ok");
-      refreshCalendar();
-    } else {
-      showMessage("Create failed: " + xhr.responseText, "error");
-    }
-  };
-  xhr.send(JSON.stringify({ startTime: startTime, endTime: endTime }));
+function closeModal() {
+  document.getElementById("modalOverlay").style.display = "none";
+  currentAppointmentId = null;
 }
 
 // Update the month title header
@@ -160,30 +209,74 @@ function setMonthTitle(month, year) {
     names[month - 1] + " " + String(year);
 }
 
+// Send POST then refresh everything on success
+function sendCreateAppointment(title, description, startTime, endTime, status, attendees) {
+  const xhr = new XMLHttpRequest();
+  xhr.open("POST", "/appointments");
+  xhr.setRequestHeader("Content-Type", "application/json");
+  xhr.onload = function () {
+    if (xhr.status === 201) {
+      showMessage("Appointment added", "ok");
+      refreshCalendar();
+    } else {
+      showMessage("Create failed: " + xhr.responseText, "error");
+    }
+  };
+  xhr.send(JSON.stringify({ title, description, startTime, endTime, status, attendees }));
+}
+
 // Button click: validate inputs then create an appointment
 document.getElementById("createAppmtButton").addEventListener("click", function () {
+  const title = document.getElementById("titleInput").value.trim();
+  const description = document.getElementById("descriptionInput").value.trim();
   const startTime = document.getElementById("startTimeInput").value;
   const endTime = document.getElementById("endTimeInput").value;
+  const status = document.getElementById("statusInput").value;
+  const attendeesRaw = document.getElementById("attendeesInput").value;
+  const attendees = attendeesRaw
+    ? attendeesRaw.split(",").map(a => a.trim()).filter(a => a)
+    : [];
 
-  if (!startTime && !endTime) {
-    showMessage("Please enter a start time and end time", "error");
+  if (!title) {
+    showMessage("Please enter a title", "error");
     return;
   }
-
   if (!startTime) {
     showMessage("Please enter a start time", "error");
     return;
   }
-
   if (!endTime) {
     showMessage("Please enter an end time", "error");
     return;
   }
-
   if (endTime <= startTime) {
     showMessage("End time must be after start time", "error");
     return;
   }
 
-  sendCreateAppointment(startTime, endTime);
+  sendCreateAppointment(title, description, startTime, endTime, status, attendees);
 });
+
+// Month navigation
+document.getElementById("prevMonthBtn").addEventListener("click", function () {
+  currentMonth -= 1;
+  if (currentMonth < 1) {
+    currentMonth = 12;
+    currentYear -= 1;
+  }
+  refreshCalendar();
+});
+
+document.getElementById("nextMonthBtn").addEventListener("click", function () {
+  currentMonth += 1;
+  if (currentMonth > 12) {
+    currentMonth = 1;
+    currentYear += 1;
+  }
+  refreshCalendar();
+});
+
+// Modal button handlers
+document.getElementById("modalSaveBtn").addEventListener("click", saveAppointmentChanges);
+document.getElementById("modalDeleteBtn").addEventListener("click", deleteButtonHandler);
+document.getElementById("modalCloseBtn").addEventListener("click", closeModal);

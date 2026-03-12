@@ -1,14 +1,29 @@
 [
   {
+    "id": "1",
+    "title": "Evening Check-in",
+    "description": "Daily end-of-day review",
     "startTime": "2026-02-26T19:50",
-    "endTime": "2026-02-26T20:20"
+    "endTime": "2026-02-26T20:20",
+    "status": "busy",
+    "attendees": []
   },
   {
+    "id": "2",
+    "title": "Evening Check-in",
+    "description": "Daily end-of-day review",
     "startTime": "2026-02-27T19:50",
-    "endTime": "2026-02-27T20:20"
+    "endTime": "2026-02-27T20:20",
+    "status": "busy",
+    "attendees": []
   },
   {
-    "startTime": "2026-03-05T16:46",
-    "endTime": "2026-03-05T17:46"
+    "title": "Team Sync",
+    "description": "Weekly team synchronization meeting",
+    "startTime": "2026-03-05T16:47",
+    "endTime": "2026-03-05T17:46",
+    "status": "busy",
+    "attendees": [],
+    "id": "3"
   }
 ]

@@ -86,3 +86,81 @@
   margin-left: 12px;
   cursor: pointer;
 }
+
+/* Month navigation */
+#navSection {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+/* Status color coding */
+.status-busy {
+  border-color: #c62828;
+  background-color: #ffebee;
+}
+
+.status-free {
+  border-color: #2e7d32;
+  background-color: #e8f5e9;
+}
+
+.status-out-of-office {
+  border-color: #e65100;
+  background-color: #fff3e0;
+}
+
+.status-tentative {
+  border-color: #1565c0;
+  background-color: #e3f2fd;
+}
+
+/* Modal overlay */
+#modalOverlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  justify-content: center;
+  align-items: center;
+  z-index: 100;
+}
+
+#modalContent {
+  background: #fff;
+  padding: 24px;
+  border-radius: 6px;
+  min-width: 360px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+#modalContent label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+#modalActions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+#modalDeleteBtn {
+  background-color: #c62828;
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  padding: 6px 12px;
+}
+
+/* Form labels */
+#createSlotPanel label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 8px;
+}
