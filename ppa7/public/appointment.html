@@ -1,0 +1,38 @@
+<!-- public/provider.html -->
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Provider Calendar</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <h1 id="monthTitle"></h1>
+    <div id="message"></div>
+
+    <section id="createSlotPanel">
+      <h2>Add Appointment</h2>
+      <label>
+        Start time
+        <input type="datetime-local" id="startTimeInput">
+      </label>
+      <label>
+        End time
+        <input type="datetime-local" id="endTimeInput">
+      </label>
+      <button id="createAppmtButton">Add appointment</button>
+    </section>
+
+    <section>
+      <h2>All appointments</h2>
+      <div id="calendar"></div>
+    </section>
+
+    <section>
+      <h2>Month view</h2>
+      <div id="calendarGrid"></div>
+    </section>
+
+    <script src="/provider.js"></script>
+  </body>
+</html>
