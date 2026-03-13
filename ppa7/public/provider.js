@@ -7,6 +7,7 @@
 let currentMonth = 3; // 1 to 12
 let currentYear = 2026;
 let currentAppointmentId = null;
+let allAppointments = [];
 
 // Run once when the page loads
 refreshCalendar();
@@ -24,14 +25,30 @@ function refreshCalendar() {
   xhr.open("GET", "/appointments");
   xhr.onload = function () {
     if (xhr.status === 200) {
-      const appointments = JSON.parse(xhr.responseText);
-      renderCalendar(appointments);
-      renderAppointments(appointments);
+      allAppointments = JSON.parse(xhr.responseText);
+      renderCalendar(allAppointments);
+      filterAppointments();
     } else {
       showMessage("GET failed: " + String(xhr.status), "error");
     }
   };
   xhr.send();
+}
+
+// Filter allAppointments by search text and status, then re-render the list
+function filterAppointments() {
+  const query = document.getElementById("searchInput").value.toLowerCase();
+  const statusFilter = document.getElementById("filterStatus").value;
+
+  const filtered = allAppointments.filter(appt => {
+    const matchesText = !query
+      || (appt.title || "").toLowerCase().includes(query)
+      || (appt.description || "").toLowerCase().includes(query);
+    const matchesStatus = !statusFilter || appt.status === statusFilter;
+    return matchesText && matchesStatus;
+  });
+
+  renderAppointments(filtered);
 }
 
 // Render the month grid, inserting appointment items into each day cell
@@ -275,6 +292,10 @@ document.getElementById("nextMonthBtn").addEventListener("click", function () {
   }
   refreshCalendar();
 });
+
+// Filter event handlers
+document.getElementById("searchInput").addEventListener("input", filterAppointments);
+document.getElementById("filterStatus").addEventListener("change", filterAppointments);
 
 // Modal button handlers
 document.getElementById("modalSaveBtn").addEventListener("click", saveAppointmentChanges);

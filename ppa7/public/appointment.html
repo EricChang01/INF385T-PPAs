@@ -52,6 +52,16 @@
 
       <section id="allAppointmentsPanel">
         <h2>All appointments</h2>
+        <div id="filterPanel">
+          <input type="text" id="searchInput" placeholder="Search by title or description">
+          <select id="filterStatus">
+            <option value="">All statuses</option>
+            <option value="busy">Busy</option>
+            <option value="free">Free</option>
+            <option value="out-of-office">Out of office</option>
+            <option value="tentative">Tentative</option>
+          </select>
+        </div>
         <div id="calendar"></div>
       </section>
     </div>
