@@ -157,10 +157,34 @@
   padding: 6px 12px;
 }
 
+/* Side-by-side layout for form and appointments list */
+#topPanel {
+  display: flex;
+  align-items: flex-start;
+  gap: 32px;
+}
+
+#createSlotPanel {
+  width: 280px;
+  flex-shrink: 0;
+}
+
+#allAppointmentsPanel {
+  width: 650px;
+  flex-shrink: 0;
+}
+
 /* Form labels */
 #createSlotPanel label {
   display: flex;
   flex-direction: column;
   gap: 4px;
   margin-bottom: 8px;
+}
+
+#createSlotPanel input,
+#createSlotPanel select,
+#modalContent input,
+#modalContent select {
+  width: 200px;
 }
