@@ -75,15 +75,8 @@ function validateAppointment(appt) {
 // Returns true if appt overlaps an existing busy or out-of-office appointment.
 // excludeId skips the appointment being replaced so it doesn't conflict with itself.
 const checkOverlap = (appt, excludeId = null) => {
-  const blockingStatuses = ["busy", "out-of-office"];
-  const apptStatus = appt.status || "busy";
-  if (!blockingStatuses.includes(apptStatus)) {
-    return false;
-  }
   return appointments.some(existing => {
     if (existing.id === excludeId) return false;
-    const existingStatus = existing.status || "busy";
-    if (!blockingStatuses.includes(existingStatus)) return false;
     return appt.startTime < existing.endTime && appt.endTime > existing.startTime;
   });
 };
