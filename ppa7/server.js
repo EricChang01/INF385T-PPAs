@@ -197,7 +197,7 @@ const server = http.createServer(function (request, response) {
       }
 
       if (checkOverlap(newAppointment)) {
-        sendText(response, 409, "Appointment overlaps with an existing busy appointment");
+        sendText(response, 409, "Appointment overlaps with an existing appointment");
         return;
       }
 
