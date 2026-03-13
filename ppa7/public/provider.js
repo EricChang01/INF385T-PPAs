@@ -193,6 +193,24 @@ function saveAppointmentChanges() {
   xhr.send(JSON.stringify(updatedAppointment));
 }
 
+// Send PATCH with only the status field — partial update without replacing the whole object
+function patchAppointmentStatus() {
+  const status = document.getElementById("modalStatus").value;
+  const xhr = new XMLHttpRequest();
+  xhr.open("PATCH", "/appointments/" + currentAppointmentId);
+  xhr.setRequestHeader("Content-Type", "application/json");
+  xhr.onload = function () {
+    if (xhr.status === 200) {
+      showMessage("Status updated", "ok");
+      closeModal();
+      refreshCalendar();
+    } else {
+      showMessage("Patch failed: " + xhr.responseText, "error");
+    }
+  };
+  xhr.send(JSON.stringify({ status }));
+}
+
 // Arrow function: send DELETE for the currently open appointment, then refresh
 const deleteButtonHandler = () => {
   // Send DELETE request
@@ -299,5 +317,6 @@ document.getElementById("filterStatus").addEventListener("change", filterAppoint
 
 // Modal button handlers
 document.getElementById("modalSaveBtn").addEventListener("click", saveAppointmentChanges);
+document.getElementById("modalPatchStatusBtn").addEventListener("click", patchAppointmentStatus);
 document.getElementById("modalDeleteBtn").addEventListener("click", deleteButtonHandler);
 document.getElementById("modalCloseBtn").addEventListener("click", closeModal);
