@@ -47,6 +47,19 @@
           Attendees (comma-separated)
           <input type="text" id="attendeesInput" placeholder="e.g. Alice, Bob">
         </label>
+        <label>
+          Recurrence
+          <select id="recurrenceInput">
+            <option value="none">Does not repeat</option>
+            <option value="daily">Daily</option>
+            <option value="weekly">Weekly</option>
+            <option value="monthly">Monthly</option>
+          </select>
+        </label>
+        <label>
+          Occurrences
+          <input type="number" id="recurrenceCountInput" min="1" value="1">
+        </label>
         <button id="createAppmtButton">Add appointment</button>
       </section>
 
@@ -103,6 +116,19 @@
         <label>
           Attendees (comma-separated)
           <input type="text" id="modalAttendees">
+        </label>
+        <label>
+          Recurrence
+          <select id="modalRecurrence">
+            <option value="none">Does not repeat</option>
+            <option value="daily">Daily</option>
+            <option value="weekly">Weekly</option>
+            <option value="monthly">Monthly</option>
+          </select>
+        </label>
+        <label>
+          Occurrences
+          <input type="number" id="modalRecurrenceCount" min="1" value="1">
         </label>
         <div id="modalActions">
           <button id="modalSaveBtn">Save (PUT)</button>

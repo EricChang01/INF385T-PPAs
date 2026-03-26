@@ -51,6 +51,14 @@ function filterAppointments() {
   renderAppointments(filtered);
 }
 
+function normalizeRecurrence(appt) {
+  const recurrence = appt.recurrence || "none";
+  const recurrenceCount = Number.isInteger(appt.recurrenceCount) && appt.recurrenceCount > 0
+    ? appt.recurrenceCount
+    : 1;
+  return { recurrence, recurrenceCount };
+}
+
 // Render the month grid, inserting appointment items into each day cell
 function renderCalendar(appointments) {
   setMonthTitle(currentMonth, currentYear);
@@ -96,7 +104,12 @@ function renderCalendar(appointments) {
           item.className = "slotAvail status-" + (appt.status || "busy");
 
           const startClock = appt.startTime.split("T")[1];
-          item.textContent = (appt.title || "Untitled") + " " + startClock;
+          const recurrenceMeta = normalizeRecurrence(appt);
+          let recurrenceSuffix = "";
+          if (recurrenceMeta.recurrence !== "none") {
+            recurrenceSuffix = " (" + recurrenceMeta.recurrence + ")";
+          }
+          item.textContent = (appt.title || "Untitled") + " " + startClock + recurrenceSuffix;
 
           // Clicking a calendar item opens the edit modal
           item.addEventListener("click", function () {
@@ -128,10 +141,15 @@ function renderAppointments(appointmentsArray) {
     const info = document.createElement("div");
     const startFormatted = appt.startTime.replace("T", " ");
     const endFormatted = appt.endTime.replace("T", " ");
+    const recurrenceMeta = normalizeRecurrence(appt);
     info.innerHTML = "<strong>" + (appt.title || "Untitled") + "</strong> &mdash; "
       + startFormatted + " to " + endFormatted;
     if (appt.description) {
       info.innerHTML += "<br><em>" + appt.description + "</em>";
+    }
+    if (recurrenceMeta.recurrence !== "none") {
+      info.innerHTML += "<br>Repeats: " + recurrenceMeta.recurrence
+        + " (" + String(recurrenceMeta.recurrenceCount) + " occurrences)";
     }
     card.appendChild(info);
 
@@ -156,6 +174,9 @@ function openAppointmentModal(appointment) {
   document.getElementById("modalEndTime").value = appointment.endTime || "";
   document.getElementById("modalStatus").value = appointment.status || "busy";
   document.getElementById("modalAttendees").value = (appointment.attendees || []).join(", ");
+  const recurrenceMeta = normalizeRecurrence(appointment);
+  document.getElementById("modalRecurrence").value = recurrenceMeta.recurrence;
+  document.getElementById("modalRecurrenceCount").value = String(recurrenceMeta.recurrenceCount);
 
   // display modal dialog
   document.getElementById("modalOverlay").style.display = "flex";
@@ -170,12 +191,29 @@ function saveAppointmentChanges() {
   const endTime = document.getElementById("modalEndTime").value;
   const status = document.getElementById("modalStatus").value;
   const attendeesRaw = document.getElementById("modalAttendees").value;
+  const recurrence = document.getElementById("modalRecurrence").value;
+  const recurrenceCountRaw = Number(document.getElementById("modalRecurrenceCount").value);
+  const recurrenceCount = recurrence === "none" ? 1 : recurrenceCountRaw;
   const attendees = attendeesRaw
     ? attendeesRaw.split(",").map(a => a.trim()).filter(a => a)
     : [];
 
+  if (!Number.isInteger(recurrenceCount) || recurrenceCount < 1) {
+    showMessage("Occurrences must be a whole number of at least 1", "error");
+    return;
+  }
+
   // Construct updated appointment object
-  const updatedAppointment = { title, description, startTime, endTime, status, attendees };
+  const updatedAppointment = {
+    title,
+    description,
+    startTime,
+    endTime,
+    status,
+    attendees,
+    recurrence,
+    recurrenceCount,
+  };
 
   // Send PUT request to server
   const xhr = new XMLHttpRequest();
@@ -245,7 +283,7 @@ function setMonthTitle(month, year) {
 }
 
 // Send POST then refresh everything on success
-function sendCreateAppointment(title, description, startTime, endTime, status, attendees) {
+function sendCreateAppointment(title, description, startTime, endTime, status, attendees, recurrence, recurrenceCount) {
   const xhr = new XMLHttpRequest();
   xhr.open("POST", "/appointments");
   xhr.setRequestHeader("Content-Type", "application/json");
@@ -257,7 +295,16 @@ function sendCreateAppointment(title, description, startTime, endTime, status, a
       showMessage("Create failed: " + xhr.responseText, "error");
     }
   };
-  xhr.send(JSON.stringify({ title, description, startTime, endTime, status, attendees }));
+  xhr.send(JSON.stringify({
+    title,
+    description,
+    startTime,
+    endTime,
+    status,
+    attendees,
+    recurrence,
+    recurrenceCount,
+  }));
 }
 
 // Button click: validate inputs then create an appointment
@@ -268,6 +315,9 @@ document.getElementById("createAppmtButton").addEventListener("click", function 
   const endTime = document.getElementById("endTimeInput").value;
   const status = document.getElementById("statusInput").value;
   const attendeesRaw = document.getElementById("attendeesInput").value;
+  const recurrence = document.getElementById("recurrenceInput").value;
+  const recurrenceCountRaw = Number(document.getElementById("recurrenceCountInput").value);
+  const recurrenceCount = recurrence === "none" ? 1 : recurrenceCountRaw;
   const attendees = attendeesRaw
     ? attendeesRaw.split(",").map(a => a.trim()).filter(a => a)
     : [];
@@ -288,8 +338,21 @@ document.getElementById("createAppmtButton").addEventListener("click", function 
     showMessage("End time must be after start time", "error");
     return;
   }
+  if (!Number.isInteger(recurrenceCount) || recurrenceCount < 1) {
+    showMessage("Occurrences must be a whole number of at least 1", "error");
+    return;
+  }
 
-  sendCreateAppointment(title, description, startTime, endTime, status, attendees);
+  sendCreateAppointment(
+    title,
+    description,
+    startTime,
+    endTime,
+    status,
+    attendees,
+    recurrence,
+    recurrenceCount
+  );
 });
 
 // Month navigation

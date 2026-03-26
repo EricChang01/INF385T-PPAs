@@ -69,7 +69,79 @@ function validateAppointment(appt) {
   if (appt.endTime <= appt.startTime) {
     return "endTime must be after startTime";
   }
+  if (appt.recurrence !== undefined) {
+    const validRecurrence = ["none", "daily", "weekly", "monthly"];
+    if (typeof appt.recurrence !== "string" || !validRecurrence.includes(appt.recurrence)) {
+      return "Invalid recurrence";
+    }
+  }
+  if (appt.recurrenceCount !== undefined) {
+    if (!Number.isInteger(appt.recurrenceCount) || appt.recurrenceCount < 1) {
+      return "Invalid recurrenceCount";
+    }
+  }
   return null;
+}
+
+function parseDateTimeLocal(value) {
+  const [datePart, timePart] = value.split("T");
+  if (!datePart || !timePart) return null;
+  const [year, month, day] = datePart.split("-").map(Number);
+  const [hour, minute] = timePart.split(":").map(Number);
+  if ([year, month, day, hour, minute].some(Number.isNaN)) return null;
+  return new Date(year, month - 1, day, hour, minute, 0, 0);
+}
+
+function formatDateTimeLocal(dateObj) {
+  const pad = n => String(n).padStart(2, "0");
+  return (
+    String(dateObj.getFullYear())
+    + "-" + pad(dateObj.getMonth() + 1)
+    + "-" + pad(dateObj.getDate())
+    + "T" + pad(dateObj.getHours())
+    + ":" + pad(dateObj.getMinutes())
+  );
+}
+
+function buildRecurringAppointments(baseAppointment) {
+  const recurrence = baseAppointment.recurrence || "none";
+  const recurrenceCount = baseAppointment.recurrenceCount || 1;
+
+  if (recurrence === "none" || recurrenceCount === 1) {
+    return [Object.assign({}, baseAppointment, { recurrence: "none", recurrenceCount: 1 })];
+  }
+
+  const start = parseDateTimeLocal(baseAppointment.startTime);
+  const end = parseDateTimeLocal(baseAppointment.endTime);
+  if (!start || !end) {
+    return [];
+  }
+
+  const recurringAppointments = [];
+  for (let i = 0; i < recurrenceCount; i += 1) {
+    const startCopy = new Date(start.getTime());
+    const endCopy = new Date(end.getTime());
+
+    if (recurrence === "daily") {
+      startCopy.setDate(startCopy.getDate() + i);
+      endCopy.setDate(endCopy.getDate() + i);
+    } else if (recurrence === "weekly") {
+      startCopy.setDate(startCopy.getDate() + (i * 7));
+      endCopy.setDate(endCopy.getDate() + (i * 7));
+    } else if (recurrence === "monthly") {
+      startCopy.setMonth(startCopy.getMonth() + i);
+      endCopy.setMonth(endCopy.getMonth() + i);
+    }
+
+    recurringAppointments.push(Object.assign({}, baseAppointment, {
+      startTime: formatDateTimeLocal(startCopy),
+      endTime: formatDateTimeLocal(endCopy),
+      recurrence,
+      recurrenceCount,
+    }));
+  }
+
+  return recurringAppointments;
 }
 
 // Returns true if appt overlaps an existing busy or out-of-office appointment.
@@ -94,18 +166,33 @@ function updateAppointmentFull(id, updatedAppointment) {
     return { error: validationError, status: 400 };
   }
 
+  const appointmentsToApply = buildRecurringAppointments(updatedAppointment);
+  if (!appointmentsToApply.length) {
+    return { error: "Invalid startTime/endTime for recurrence", status: 400 };
+  }
+
   // Check for overlaps, excluding the appointment being replaced
-  if (checkOverlap(updatedAppointment, id)) {
-    return { error: "Appointment overlaps with an existing busy appointment", status: 409 };
+  for (let i = 0; i < appointmentsToApply.length; i += 1) {
+    if (checkOverlap(appointmentsToApply[i], id)) {
+      return { error: "Appointment overlaps with an existing busy appointment", status: 409 };
+    }
   }
 
   // Replace the existing object, preserving the id
-  updatedAppointment.id = id;
-  appointments[index] = updatedAppointment;
+  const primaryAppointment = appointmentsToApply[0];
+  primaryAppointment.id = id;
+  appointments[index] = primaryAppointment;
+
+  // For recurring edits, add additional occurrences as separate appointments
+  for (let i = 1; i < appointmentsToApply.length; i += 1) {
+    const extraAppointment = appointmentsToApply[i];
+    extraAppointment.id = String(Date.now()) + "-u" + String(i);
+    appointments.push(extraAppointment);
+  }
 
   // Save updated data to appointments.json
   saveAppointments();
-  return { data: updatedAppointment, status: 200 };
+  return { data: primaryAppointment, status: 200 };
 }
 
 function updateAppointmentPartial(id, changes) {
@@ -196,15 +283,29 @@ const server = http.createServer(function (request, response) {
         return;
       }
 
-      if (checkOverlap(newAppointment)) {
-        sendText(response, 409, "Appointment overlaps with an existing appointment");
+      const appointmentsToCreate = buildRecurringAppointments(newAppointment);
+      if (!appointmentsToCreate.length) {
+        sendText(response, 400, "Invalid startTime/endTime for recurrence");
         return;
       }
 
-      newAppointment.id = String(Date.now());
-      appointments.push(newAppointment);
+      for (let i = 0; i < appointmentsToCreate.length; i += 1) {
+        if (checkOverlap(appointmentsToCreate[i])) {
+          sendText(response, 409, "One or more recurring appointments overlap with an existing appointment");
+          return;
+        }
+      }
+
+      const createdAppointments = [];
+      for (let i = 0; i < appointmentsToCreate.length; i += 1) {
+        const appointment = appointmentsToCreate[i];
+        appointment.id = String(Date.now()) + "-" + String(i);
+        appointments.push(appointment);
+        createdAppointments.push(appointment);
+      }
+
       saveAppointments();
-      sendJson(response, 201, newAppointment);
+      sendJson(response, 201, createdAppointments);
     });
   }
 
