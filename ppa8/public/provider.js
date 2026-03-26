@@ -67,21 +67,10 @@ class Appointment {
     );
   }
 
-  static statusBlocksConflict(status) {
-    return status !== "free";
-  }
-
   conflictsWith(other) {
     const otherAppointment = other instanceof Appointment
       ? other
       : Appointment.createFromJSON(other);
-
-    if (!Appointment.statusBlocksConflict(this.status)) {
-      return false;
-    }
-    if (!Appointment.statusBlocksConflict(otherAppointment.status)) {
-      return false;
-    }
 
     return this.startDateTime < otherAppointment.endDateTime
       && this.endDateTime > otherAppointment.startDateTime;

@@ -74,10 +74,6 @@ class Appointment {
     );
   }
 
-  static statusBlocksConflict(status) {
-    return status !== "free";
-  }
-
   static createFromJSON(data) {
     if (!data || typeof data !== "object") {
       throw new Error("Appointment payload must be an object");
@@ -105,13 +101,6 @@ class Appointment {
     const otherAppointment = other instanceof Appointment
       ? other
       : Appointment.createFromJSON(other);
-
-    if (!Appointment.statusBlocksConflict(this.status)) {
-      return false;
-    }
-    if (!Appointment.statusBlocksConflict(otherAppointment.status)) {
-      return false;
-    }
 
     return this.startDateTime < otherAppointment.endDateTime
       && this.endDateTime > otherAppointment.startDateTime;
@@ -369,15 +358,15 @@ function loadAppointments() {
       return;
     }
 
-    const hydrated = [];
+    const all_appointments = [];
     for (let i = 0; i < parsed.length; i += 1) {
       try {
-        hydrated.push(Appointment.createFromJSON(parsed[i]));
+        all_appointments.push(Appointment.createFromJSON(parsed[i]));
       } catch (error) {
         console.log("Skipping invalid appointment at index " + String(i) + ": " + error.message);
       }
     }
-    appointments = hydrated;
+    appointments = all_appointments;
   } catch (error) {
     console.log("Could not load appointments.json, starting with empty array.");
     appointments = [];
