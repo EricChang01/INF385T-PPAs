@@ -6,7 +6,9 @@
     "startTime": "2026-02-26T19:50",
     "endTime": "2026-02-26T20:20",
     "status": "busy",
-    "attendees": []
+    "attendees": [],
+    "recurrence": "none",
+    "recurrenceCount": 1
   },
   {
     "id": "2",
@@ -15,18 +17,23 @@
     "startTime": "2026-02-27T19:50",
     "endTime": "2026-02-27T20:20",
     "status": "busy",
-    "attendees": []
+    "attendees": [],
+    "recurrence": "none",
+    "recurrenceCount": 1
   },
   {
+    "id": "3",
     "title": "Team Sync",
     "description": "Weekly team synchronization meeting",
     "startTime": "2026-03-05T16:47",
     "endTime": "2026-03-05T17:46",
     "status": "tentative",
     "attendees": [],
-    "id": "3"
+    "recurrence": "none",
+    "recurrenceCount": 1
   },
   {
+    "id": "1774552879269-0",
     "title": "test",
     "description": "test recurrence",
     "startTime": "2026-03-26T14:20",
@@ -34,10 +41,10 @@
     "status": "busy",
     "attendees": [],
     "recurrence": "daily",
-    "recurrenceCount": 3,
-    "id": "1774552879269-0"
+    "recurrenceCount": 3
   },
   {
+    "id": "1774552879269-1",
     "title": "test",
     "description": "test recurrence",
     "startTime": "2026-03-27T14:20",
@@ -45,10 +52,10 @@
     "status": "busy",
     "attendees": [],
     "recurrence": "daily",
-    "recurrenceCount": 3,
-    "id": "1774552879269-1"
+    "recurrenceCount": 3
   },
   {
+    "id": "1774552879269-2",
     "title": "test",
     "description": "test recurrence",
     "startTime": "2026-03-28T14:20",
@@ -56,7 +63,6 @@
     "status": "busy",
     "attendees": [],
     "recurrence": "daily",
-    "recurrenceCount": 3,
-    "id": "1774552879269-2"
+    "recurrenceCount": 3
   }
 ]

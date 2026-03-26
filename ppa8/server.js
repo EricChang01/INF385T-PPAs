@@ -522,7 +522,15 @@ function updateAppointmentPartial(id, changes) {
   }
   merged.id = id;
 
-  if (checkOverlap(merged, id)) {
+  const affectsConflict = (
+    Object.prototype.hasOwnProperty.call(changes, "startTime")
+    || Object.prototype.hasOwnProperty.call(changes, "startDateTime")
+    || Object.prototype.hasOwnProperty.call(changes, "endTime")
+    || Object.prototype.hasOwnProperty.call(changes, "endDateTime")
+    || Object.prototype.hasOwnProperty.call(changes, "status")
+  );
+
+  if (affectsConflict && checkOverlap(merged, id)) {
     return { error: "Appointment overlaps with an existing busy appointment", status: 409 };
   }
 
