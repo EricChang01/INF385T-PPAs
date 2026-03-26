@@ -1,31 +1,330 @@
-// public/provider.js
-// Provider calendar UI for PPA7
-// Full CRUD: GET, POST, PUT, PATCH, DELETE
-
 "use strict";
 
-let currentMonth = 3; // 1 to 12
+const VALID_STATUSES = ["busy", "free", "out-of-office", "tentative"];
+const VALID_RECURRENCE = ["none", "daily", "weekly", "monthly"];
+
+class Appointment {
+  constructor(title, startDateTime, endDateTime, status = "busy", description = "", extras = {}) {
+    const safeExtras = extras && typeof extras === "object" ? extras : {};
+
+    this.id = safeExtras.id || null;
+    this.title = title;
+    this.startTime = startDateTime;
+    this.endTime = endDateTime;
+    this.status = status;
+    this.description = description;
+    this.attendees = safeExtras.attendees;
+    this.recurrence = safeExtras.recurrence;
+    this.recurrenceCount = safeExtras.recurrenceCount;
+
+    if (this.recurrence === "none") {
+      this.recurrenceCount = 1;
+    }
+  }
+
+  static parseDateTimeLocal(value) {
+    if (typeof value !== "string" || value.trim() === "") {
+      throw new Error("Date/time must use format YYYY-MM-DDTHH:MM");
+    }
+
+    const normalized = value.trim();
+    const [datePart, timePart] = normalized.split("T");
+    if (!datePart || !timePart) {
+      throw new Error("Date/time must use format YYYY-MM-DDTHH:MM");
+    }
+
+    const [year, month, day] = datePart.split("-").map(Number);
+    const [hour, minute] = timePart.split(":").map(Number);
+    if ([year, month, day, hour, minute].some(Number.isNaN)) {
+      throw new Error("Date/time contains invalid numeric values");
+    }
+
+    const date = new Date(year, month - 1, day, hour, minute, 0, 0);
+    if (Number.isNaN(date.getTime())) {
+      throw new Error("Date/time could not be parsed");
+    }
+
+    return date;
+  }
+
+  static createFromJSON(data) {
+    if (!data || typeof data !== "object") {
+      throw new Error("Appointment payload must be an object");
+    }
+
+    return new Appointment(
+      data.title,
+      data.startDateTime !== undefined ? data.startDateTime : data.startTime,
+      data.endDateTime !== undefined ? data.endDateTime : data.endTime,
+      data.status !== undefined ? data.status : "busy",
+      data.description !== undefined ? data.description : "",
+      {
+        id: data.id,
+        attendees: data.attendees,
+        recurrence: data.recurrence,
+        recurrenceCount: data.recurrenceCount,
+      }
+    );
+  }
+
+  static statusBlocksConflict(status) {
+    return status !== "free";
+  }
+
+  conflictsWith(other) {
+    const otherAppointment = other instanceof Appointment
+      ? other
+      : Appointment.createFromJSON(other);
+
+    if (!Appointment.statusBlocksConflict(this.status)) {
+      return false;
+    }
+    if (!Appointment.statusBlocksConflict(otherAppointment.status)) {
+      return false;
+    }
+
+    return this.startDateTime < otherAppointment.endDateTime
+      && this.endDateTime > otherAppointment.startDateTime;
+  }
+
+  update(data) {
+    if (!data || typeof data !== "object") {
+      throw new Error("Update payload must be an object");
+    }
+
+    const previous = this.toRequestPayload();
+
+    try {
+      if (Object.prototype.hasOwnProperty.call(data, "title")) {
+        this.title = data.title;
+      }
+      if (Object.prototype.hasOwnProperty.call(data, "description")) {
+        this.description = data.description;
+      }
+      if (Object.prototype.hasOwnProperty.call(data, "status")) {
+        this.status = data.status;
+      }
+      if (Object.prototype.hasOwnProperty.call(data, "attendees")) {
+        this.attendees = data.attendees;
+      }
+      if (Object.prototype.hasOwnProperty.call(data, "startTime")) {
+        this.startTime = data.startTime;
+      }
+      if (Object.prototype.hasOwnProperty.call(data, "endTime")) {
+        this.endTime = data.endTime;
+      }
+      if (Object.prototype.hasOwnProperty.call(data, "recurrence")) {
+        this.recurrence = data.recurrence;
+      }
+      if (Object.prototype.hasOwnProperty.call(data, "recurrenceCount")) {
+        this.recurrenceCount = data.recurrenceCount;
+      }
+
+      if (this.endDateTime <= this.startDateTime) {
+        throw new Error("End time must be after start time");
+      }
+
+      if (this.recurrence === "none") {
+        this.recurrenceCount = 1;
+      }
+    } catch (error) {
+      this._restore(previous);
+      throw error;
+    }
+  }
+
+  _restore(data) {
+    this.id = data.id;
+    this._title = data.title;
+    this._description = data.description;
+    this._status = data.status;
+    this._attendees = data.attendees.slice();
+    this._startTime = data.startTime;
+    this._endTime = data.endTime;
+    this._recurrence = data.recurrence;
+    this._recurrenceCount = data.recurrenceCount;
+  }
+
+  toDisplayString() {
+    let label = this.title + " " + this.startTime.split("T")[1];
+    if (this.recurrence !== "none") {
+      label += " (" + this.recurrence + ")";
+    }
+    return label;
+  }
+
+  toRequestPayload() {
+    return {
+      id: this.id,
+      title: this.title,
+      description: this.description,
+      startTime: this.startTime,
+      endTime: this.endTime,
+      status: this.status,
+      attendees: this.attendees.slice(),
+      recurrence: this.recurrence,
+      recurrenceCount: this.recurrenceCount,
+    };
+  }
+
+  get duration() {
+    const ms = this.endDateTime.getTime() - this.startDateTime.getTime();
+    return Math.round(ms / 60000);
+  }
+
+  get title() {
+    return this._title;
+  }
+
+  set title(value) {
+    if (typeof value !== "string" || value.trim() === "") {
+      throw new Error("Title is required");
+    }
+    const trimmed = value.trim();
+    if (trimmed.length > 120) {
+      throw new Error("Title is too long");
+    }
+    this._title = trimmed;
+  }
+
+  get description() {
+    return this._description;
+  }
+
+  set description(value) {
+    if (value === undefined || value === null) {
+      this._description = "";
+      return;
+    }
+    if (typeof value !== "string") {
+      throw new Error("Description must be text");
+    }
+    this._description = value.trim();
+  }
+
+  get status() {
+    return this._status;
+  }
+
+  set status(value) {
+    const next = value === undefined || value === null || value === "" ? "busy" : value;
+    if (typeof next !== "string" || !VALID_STATUSES.includes(next)) {
+      throw new Error("Invalid status");
+    }
+    this._status = next;
+  }
+
+  get attendees() {
+    return this._attendees;
+  }
+
+  set attendees(value) {
+    if (value === undefined || value === null) {
+      this._attendees = [];
+      return;
+    }
+    if (!Array.isArray(value)) {
+      throw new Error("Attendees must be a list");
+    }
+    this._attendees = value.map(a => String(a).trim()).filter(a => a);
+  }
+
+  get startTime() {
+    return this._startTime;
+  }
+
+  set startTime(value) {
+    const parsed = Appointment.parseDateTimeLocal(value);
+    const normalized = value.trim();
+
+    if (this._endTime) {
+      const end = Appointment.parseDateTimeLocal(this._endTime);
+      if (parsed >= end) {
+        throw new Error("Start time must be before end time");
+      }
+    }
+
+    this._startTime = normalized;
+  }
+
+  get endTime() {
+    return this._endTime;
+  }
+
+  set endTime(value) {
+    const parsed = Appointment.parseDateTimeLocal(value);
+    const normalized = value.trim();
+
+    if (this._startTime) {
+      const start = Appointment.parseDateTimeLocal(this._startTime);
+      if (parsed <= start) {
+        throw new Error("End time must be after start time");
+      }
+    }
+
+    this._endTime = normalized;
+  }
+
+  get startDateTime() {
+    return Appointment.parseDateTimeLocal(this._startTime);
+  }
+
+  get endDateTime() {
+    return Appointment.parseDateTimeLocal(this._endTime);
+  }
+
+  get recurrence() {
+    return this._recurrence;
+  }
+
+  set recurrence(value) {
+    const next = value === undefined || value === null || value === "" ? "none" : value;
+    if (typeof next !== "string" || !VALID_RECURRENCE.includes(next)) {
+      throw new Error("Invalid recurrence");
+    }
+    this._recurrence = next;
+  }
+
+  get recurrenceCount() {
+    return this._recurrenceCount;
+  }
+
+  set recurrenceCount(value) {
+    const next = value === undefined || value === null || value === "" ? 1 : value;
+    if (!Number.isInteger(next) || next < 1) {
+      throw new Error("Occurrences must be at least 1");
+    }
+    this._recurrenceCount = next;
+  }
+}
+
+let currentMonth = 3;
 let currentYear = 2026;
 let currentAppointmentId = null;
+let currentAppointment = null;
 let allAppointments = [];
 
-// Run once when the page loads
 refreshCalendar();
 
-// Show a user-facing message
 function showMessage(text, kind) {
   const el = document.getElementById("message");
   el.textContent = text;
   el.className = kind;
 }
 
-// GET all appointments then re-render the month grid and the appointment list
 function refreshCalendar() {
   const xhr = new XMLHttpRequest();
   xhr.open("GET", "/appointments");
   xhr.onload = function () {
     if (xhr.status === 200) {
-      allAppointments = JSON.parse(xhr.responseText);
+      try {
+        const raw = JSON.parse(xhr.responseText);
+        allAppointments = raw.map(item => Appointment.createFromJSON(item));
+      } catch (error) {
+        allAppointments = [];
+        showMessage("Failed to parse appointments: " + error.message, "error");
+        return;
+      }
       renderCalendar(allAppointments);
       filterAppointments();
     } else {
@@ -35,15 +334,14 @@ function refreshCalendar() {
   xhr.send();
 }
 
-// Filter allAppointments by search text and status, then re-render the list
 function filterAppointments() {
   const query = document.getElementById("searchInput").value.toLowerCase();
   const statusFilter = document.getElementById("filterStatus").value;
 
   const filtered = allAppointments.filter(appt => {
     const matchesText = !query
-      || (appt.title || "").toLowerCase().includes(query)
-      || (appt.description || "").toLowerCase().includes(query);
+      || appt.title.toLowerCase().includes(query)
+      || appt.description.toLowerCase().includes(query);
     const matchesStatus = !statusFilter || appt.status === statusFilter;
     return matchesText && matchesStatus;
   });
@@ -51,15 +349,6 @@ function filterAppointments() {
   renderAppointments(filtered);
 }
 
-function normalizeRecurrence(appt) {
-  const recurrence = appt.recurrence || "none";
-  const recurrenceCount = Number.isInteger(appt.recurrenceCount) && appt.recurrenceCount > 0
-    ? appt.recurrenceCount
-    : 1;
-  return { recurrence, recurrenceCount };
-}
-
-// Render the month grid, inserting appointment items into each day cell
 function renderCalendar(appointments) {
   setMonthTitle(currentMonth, currentYear);
 
@@ -67,10 +356,9 @@ function renderCalendar(appointments) {
   grid.innerHTML = "";
 
   const firstDay = new Date(currentYear, currentMonth - 1, 1);
-  const startWeekday = firstDay.getDay(); // 0 Sunday to 6 Saturday
+  const startWeekday = firstDay.getDay();
   const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
 
-  // Get today's date for highlighting
   const today = new Date();
   const todayDay = today.getDate();
   const todayMonth = today.getMonth() + 1;
@@ -91,31 +379,18 @@ function renderCalendar(appointments) {
       label.textContent = String(dayNumber);
       cell.appendChild(label);
 
-      // Insert all appointments that fall on this day and month
       for (let j = 0; j < appointments.length; j += 1) {
         const appt = appointments[j];
-        const datePart = appt.startTime.split("T")[0];
-        const apptYear = Number(datePart.split("-")[0]);
-        const apptMonth = Number(datePart.split("-")[1]);
-        const apptDay = Number(datePart.split("-")[2]);
+        const [datePart] = appt.startTime.split("T");
+        const [y, m, d] = datePart.split("-").map(Number);
 
-        if (apptDay === dayNumber && apptMonth === currentMonth && apptYear === currentYear) {
+        if (d === dayNumber && m === currentMonth && y === currentYear) {
           const item = document.createElement("div");
-          item.className = "slotAvail status-" + (appt.status || "busy");
-
-          const startClock = appt.startTime.split("T")[1];
-          const recurrenceMeta = normalizeRecurrence(appt);
-          let recurrenceSuffix = "";
-          if (recurrenceMeta.recurrence !== "none") {
-            recurrenceSuffix = " (" + recurrenceMeta.recurrence + ")";
-          }
-          item.textContent = (appt.title || "Untitled") + " " + startClock + recurrenceSuffix;
-
-          // Clicking a calendar item opens the edit modal
+          item.className = "slotAvail status-" + appt.status;
+          item.textContent = appt.toDisplayString();
           item.addEventListener("click", function () {
             openAppointmentModal(appt);
           });
-
           cell.appendChild(item);
         }
       }
@@ -127,30 +402,42 @@ function renderCalendar(appointments) {
   }
 }
 
-// Render the full appointments array as cards with an Edit button
 function renderAppointments(appointmentsArray) {
   const calendar = document.getElementById("calendar");
   calendar.innerHTML = "";
 
-  for (let i = 0; i < appointmentsArray.length; i++) {
+  for (let i = 0; i < appointmentsArray.length; i += 1) {
     const appt = appointmentsArray[i];
 
     const card = document.createElement("div");
-    card.className = "appointmentCard status-" + (appt.status || "busy");
+    card.className = "appointmentCard status-" + appt.status;
 
     const info = document.createElement("div");
-    const startFormatted = appt.startTime.replace("T", " ");
-    const endFormatted = appt.endTime.replace("T", " ");
-    const recurrenceMeta = normalizeRecurrence(appt);
-    info.innerHTML = "<strong>" + (appt.title || "Untitled") + "</strong> &mdash; "
-      + startFormatted + " to " + endFormatted;
+    const titleEl = document.createElement("strong");
+    titleEl.textContent = appt.title;
+    info.appendChild(titleEl);
+
+    const timeLine = document.createElement("div");
+    timeLine.textContent = appt.startTime.replace("T", " ") + " to " + appt.endTime.replace("T", " ");
+    info.appendChild(timeLine);
+
     if (appt.description) {
-      info.innerHTML += "<br><em>" + appt.description + "</em>";
+      const descriptionLine = document.createElement("em");
+      descriptionLine.textContent = appt.description;
+      info.appendChild(descriptionLine);
     }
-    if (recurrenceMeta.recurrence !== "none") {
-      info.innerHTML += "<br>Repeats: " + recurrenceMeta.recurrence
-        + " (" + String(recurrenceMeta.recurrenceCount) + " occurrences)";
+
+    if (appt.recurrence !== "none") {
+      const recurrenceLine = document.createElement("div");
+      recurrenceLine.textContent = "Repeats: " + appt.recurrence
+        + " (" + String(appt.recurrenceCount) + " occurrences)";
+      info.appendChild(recurrenceLine);
     }
+
+    const durationLine = document.createElement("div");
+    durationLine.textContent = "Duration: " + String(appt.duration) + " minutes";
+    info.appendChild(durationLine);
+
     card.appendChild(info);
 
     const editBtn = document.createElement("button");
@@ -164,27 +451,23 @@ function renderAppointments(appointmentsArray) {
   }
 }
 
-// Display the modal and populate its form fields with the given appointment's data
 function openAppointmentModal(appointment) {
   currentAppointmentId = appointment.id;
+  currentAppointment = appointment;
 
-  document.getElementById("modalTitle").value = appointment.title || "";
-  document.getElementById("modalDescription").value = appointment.description || "";
-  document.getElementById("modalStartTime").value = appointment.startTime || "";
-  document.getElementById("modalEndTime").value = appointment.endTime || "";
-  document.getElementById("modalStatus").value = appointment.status || "busy";
-  document.getElementById("modalAttendees").value = (appointment.attendees || []).join(", ");
-  const recurrenceMeta = normalizeRecurrence(appointment);
-  document.getElementById("modalRecurrence").value = recurrenceMeta.recurrence;
-  document.getElementById("modalRecurrenceCount").value = String(recurrenceMeta.recurrenceCount);
+  document.getElementById("modalTitle").value = appointment.title;
+  document.getElementById("modalDescription").value = appointment.description;
+  document.getElementById("modalStartTime").value = appointment.startTime;
+  document.getElementById("modalEndTime").value = appointment.endTime;
+  document.getElementById("modalStatus").value = appointment.status;
+  document.getElementById("modalAttendees").value = appointment.attendees.join(", ");
+  document.getElementById("modalRecurrence").value = appointment.recurrence;
+  document.getElementById("modalRecurrenceCount").value = String(appointment.recurrenceCount);
 
-  // display modal dialog
   document.getElementById("modalOverlay").style.display = "flex";
 }
 
-// Read modal form inputs and send a PUT request to replace the appointment
 function saveAppointmentChanges() {
-  // Read form inputs
   const title = document.getElementById("modalTitle").value.trim();
   const description = document.getElementById("modalDescription").value.trim();
   const startTime = document.getElementById("modalStartTime").value;
@@ -198,24 +481,24 @@ function saveAppointmentChanges() {
     ? attendeesRaw.split(",").map(a => a.trim()).filter(a => a)
     : [];
 
-  if (!Number.isInteger(recurrenceCount) || recurrenceCount < 1) {
-    showMessage("Occurrences must be a whole number of at least 1", "error");
+  let candidate;
+  try {
+    candidate = Appointment.createFromJSON(currentAppointment.toRequestPayload());
+    candidate.update({
+      title,
+      description,
+      startTime,
+      endTime,
+      status,
+      attendees,
+      recurrence,
+      recurrenceCount,
+    });
+  } catch (error) {
+    showMessage(error.message, "error");
     return;
   }
 
-  // Construct updated appointment object
-  const updatedAppointment = {
-    title,
-    description,
-    startTime,
-    endTime,
-    status,
-    attendees,
-    recurrence,
-    recurrenceCount,
-  };
-
-  // Send PUT request to server
   const xhr = new XMLHttpRequest();
   xhr.open("PUT", "/appointments/" + currentAppointmentId);
   xhr.setRequestHeader("Content-Type", "application/json");
@@ -228,12 +511,21 @@ function saveAppointmentChanges() {
       showMessage("Update failed: " + xhr.responseText, "error");
     }
   };
-  xhr.send(JSON.stringify(updatedAppointment));
+  xhr.send(JSON.stringify(candidate.toRequestPayload()));
 }
 
-// Send PATCH with only the status field — partial update without replacing the whole object
 function patchAppointmentStatus() {
   const status = document.getElementById("modalStatus").value;
+
+  let candidate;
+  try {
+    candidate = Appointment.createFromJSON(currentAppointment.toRequestPayload());
+    candidate.update({ status });
+  } catch (error) {
+    showMessage(error.message, "error");
+    return;
+  }
+
   const xhr = new XMLHttpRequest();
   xhr.open("PATCH", "/appointments/" + currentAppointmentId);
   xhr.setRequestHeader("Content-Type", "application/json");
@@ -246,19 +538,16 @@ function patchAppointmentStatus() {
       showMessage("Patch failed: " + xhr.responseText, "error");
     }
   };
-  xhr.send(JSON.stringify({ status }));
+  xhr.send(JSON.stringify({ status: candidate.status }));
 }
 
-// Arrow function: send DELETE for the currently open appointment, then refresh
 const deleteButtonHandler = () => {
-  // Send DELETE request
   const xhr = new XMLHttpRequest();
   xhr.open("DELETE", "/appointments/" + currentAppointmentId);
   xhr.onload = function () {
     if (xhr.status === 200) {
       showMessage("Appointment deleted", "ok");
       closeModal();
-      // Refresh calendar after deletion
       refreshCalendar();
     } else {
       showMessage("Delete failed: " + xhr.responseText, "error");
@@ -270,20 +559,18 @@ const deleteButtonHandler = () => {
 function closeModal() {
   document.getElementById("modalOverlay").style.display = "none";
   currentAppointmentId = null;
+  currentAppointment = null;
 }
 
-// Update the month title header
 function setMonthTitle(month, year) {
   const names = [
     "January", "February", "March", "April", "May", "June",
     "July", "August", "September", "October", "November", "December",
   ];
-  document.getElementById("monthTitle").textContent =
-    names[month - 1] + " " + String(year);
+  document.getElementById("monthTitle").textContent = names[month - 1] + " " + String(year);
 }
 
-// Send POST then refresh everything on success
-function sendCreateAppointment(title, description, startTime, endTime, status, attendees, recurrence, recurrenceCount) {
+function sendCreateAppointment(appointment) {
   const xhr = new XMLHttpRequest();
   xhr.open("POST", "/appointments");
   xhr.setRequestHeader("Content-Type", "application/json");
@@ -295,19 +582,9 @@ function sendCreateAppointment(title, description, startTime, endTime, status, a
       showMessage("Create failed: " + xhr.responseText, "error");
     }
   };
-  xhr.send(JSON.stringify({
-    title,
-    description,
-    startTime,
-    endTime,
-    status,
-    attendees,
-    recurrence,
-    recurrenceCount,
-  }));
+  xhr.send(JSON.stringify(appointment.toRequestPayload()));
 }
 
-// Button click: validate inputs then create an appointment
 document.getElementById("createAppmtButton").addEventListener("click", function () {
   const title = document.getElementById("titleInput").value.trim();
   const description = document.getElementById("descriptionInput").value.trim();
@@ -322,40 +599,28 @@ document.getElementById("createAppmtButton").addEventListener("click", function 
     ? attendeesRaw.split(",").map(a => a.trim()).filter(a => a)
     : [];
 
-  if (!title) {
-    showMessage("Please enter a title", "error");
-    return;
-  }
-  if (!startTime) {
-    showMessage("Please enter a start time", "error");
-    return;
-  }
-  if (!endTime) {
-    showMessage("Please enter an end time", "error");
-    return;
-  }
-  if (endTime <= startTime) {
-    showMessage("End time must be after start time", "error");
-    return;
-  }
-  if (!Number.isInteger(recurrenceCount) || recurrenceCount < 1) {
-    showMessage("Occurrences must be a whole number of at least 1", "error");
+  let appointment;
+  try {
+    appointment = new Appointment(
+      title,
+      startTime,
+      endTime,
+      status,
+      description,
+      {
+        attendees,
+        recurrence,
+        recurrenceCount,
+      }
+    );
+  } catch (error) {
+    showMessage(error.message, "error");
     return;
   }
 
-  sendCreateAppointment(
-    title,
-    description,
-    startTime,
-    endTime,
-    status,
-    attendees,
-    recurrence,
-    recurrenceCount
-  );
+  sendCreateAppointment(appointment);
 });
 
-// Month navigation
 document.getElementById("prevMonthBtn").addEventListener("click", function () {
   currentMonth -= 1;
   if (currentMonth < 1) {
@@ -374,11 +639,9 @@ document.getElementById("nextMonthBtn").addEventListener("click", function () {
   refreshCalendar();
 });
 
-// Filter event handlers
 document.getElementById("searchInput").addEventListener("input", filterAppointments);
 document.getElementById("filterStatus").addEventListener("change", filterAppointments);
 
-// Modal button handlers
 document.getElementById("modalSaveBtn").addEventListener("click", saveAppointmentChanges);
 document.getElementById("modalPatchStatusBtn").addEventListener("click", patchAppointmentStatus);
 document.getElementById("modalDeleteBtn").addEventListener("click", deleteButtonHandler);

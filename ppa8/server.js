@@ -5,28 +5,388 @@ const url = require("url");
 const fs = require("fs");
 
 const DATA_FILE = "appointments.json";
+const VALID_STATUSES = ["busy", "free", "out-of-office", "tentative"];
+const VALID_RECURRENCE = ["none", "daily", "weekly", "monthly"];
+
+class Appointment {
+  constructor(title, startDateTime, endDateTime, status = "busy", description = "", extras = {}) {
+    const safeExtras = extras && typeof extras === "object" ? extras : {};
+    this._id = null;
+
+    this.title = title;
+    this.startDateTime = startDateTime;
+    this.endDateTime = endDateTime;
+    this.status = status;
+    this.description = description;
+    this.attendees = safeExtras.attendees;
+    this.recurrence = safeExtras.recurrence;
+    this.recurrenceCount = safeExtras.recurrenceCount;
+
+    if (safeExtras.id !== undefined) {
+      this.id = safeExtras.id;
+    }
+
+    if (this._recurrence === "none") {
+      this._recurrenceCount = 1;
+    }
+  }
+
+  static parseDateTimeLocal(value) {
+    if (value instanceof Date) {
+      if (Number.isNaN(value.getTime())) {
+        throw new Error("Invalid date value");
+      }
+      return new Date(value.getTime());
+    }
+
+    if (typeof value !== "string") {
+      throw new Error("Date/time must be a datetime-local string");
+    }
+
+    const trimmed = value.trim();
+    const [datePart, timePart] = trimmed.split("T");
+    if (!datePart || !timePart) {
+      throw new Error("Date/time must use format YYYY-MM-DDTHH:MM");
+    }
+
+    const [year, month, day] = datePart.split("-").map(Number);
+    const [hour, minute] = timePart.split(":").map(Number);
+    if ([year, month, day, hour, minute].some(Number.isNaN)) {
+      throw new Error("Date/time contains invalid numeric values");
+    }
+
+    const parsed = new Date(year, month - 1, day, hour, minute, 0, 0);
+    if (Number.isNaN(parsed.getTime())) {
+      throw new Error("Date/time could not be parsed");
+    }
+
+    return parsed;
+  }
+
+  static formatDateTimeLocal(dateObj) {
+    const pad = n => String(n).padStart(2, "0");
+    return (
+      String(dateObj.getFullYear())
+      + "-" + pad(dateObj.getMonth() + 1)
+      + "-" + pad(dateObj.getDate())
+      + "T" + pad(dateObj.getHours())
+      + ":" + pad(dateObj.getMinutes())
+    );
+  }
+
+  static statusBlocksConflict(status) {
+    return status !== "free";
+  }
+
+  static createFromJSON(data) {
+    if (!data || typeof data !== "object") {
+      throw new Error("Appointment payload must be an object");
+    }
+
+    const start = data.startDateTime !== undefined ? data.startDateTime : data.startTime;
+    const end = data.endDateTime !== undefined ? data.endDateTime : data.endTime;
+
+    return new Appointment(
+      data.title,
+      start,
+      end,
+      data.status !== undefined ? data.status : "busy",
+      data.description !== undefined ? data.description : "",
+      {
+        id: data.id,
+        attendees: data.attendees,
+        recurrence: data.recurrence,
+        recurrenceCount: data.recurrenceCount,
+      }
+    );
+  }
+
+  conflictsWith(other) {
+    const otherAppointment = other instanceof Appointment
+      ? other
+      : Appointment.createFromJSON(other);
+
+    if (!Appointment.statusBlocksConflict(this.status)) {
+      return false;
+    }
+    if (!Appointment.statusBlocksConflict(otherAppointment.status)) {
+      return false;
+    }
+
+    return this.startDateTime < otherAppointment.endDateTime
+      && this.endDateTime > otherAppointment.startDateTime;
+  }
+
+  update(data) {
+    if (!data || typeof data !== "object") {
+      throw new Error("Update payload must be an object");
+    }
+
+    const previous = this.toJSON();
+
+    try {
+      if (Object.prototype.hasOwnProperty.call(data, "title")) {
+        this.title = data.title;
+      }
+      if (Object.prototype.hasOwnProperty.call(data, "description")) {
+        this.description = data.description;
+      }
+      if (Object.prototype.hasOwnProperty.call(data, "status")) {
+        this.status = data.status;
+      }
+      if (Object.prototype.hasOwnProperty.call(data, "attendees")) {
+        this.attendees = data.attendees;
+      }
+      if (Object.prototype.hasOwnProperty.call(data, "startTime")) {
+        this.startDateTime = data.startTime;
+      }
+      if (Object.prototype.hasOwnProperty.call(data, "startDateTime")) {
+        this.startDateTime = data.startDateTime;
+      }
+      if (Object.prototype.hasOwnProperty.call(data, "endTime")) {
+        this.endDateTime = data.endTime;
+      }
+      if (Object.prototype.hasOwnProperty.call(data, "endDateTime")) {
+        this.endDateTime = data.endDateTime;
+      }
+      if (Object.prototype.hasOwnProperty.call(data, "recurrence")) {
+        this.recurrence = data.recurrence;
+      }
+      if (Object.prototype.hasOwnProperty.call(data, "recurrenceCount")) {
+        this.recurrenceCount = data.recurrenceCount;
+      }
+
+      if (this.endDateTime <= this.startDateTime) {
+        throw new Error("endTime must be after startTime");
+      }
+
+      if (this.recurrence === "none") {
+        this._recurrenceCount = 1;
+      }
+    } catch (error) {
+      this._restore(previous);
+      throw error;
+    }
+  }
+
+  _restore(serialized) {
+    this._id = serialized.id || null;
+    this._title = serialized.title;
+    this._description = serialized.description;
+    this._status = serialized.status;
+    this._attendees = serialized.attendees.slice();
+    this._startDateTime = Appointment.parseDateTimeLocal(serialized.startTime);
+    this._endDateTime = Appointment.parseDateTimeLocal(serialized.endTime);
+    this._recurrence = serialized.recurrence;
+    this._recurrenceCount = serialized.recurrenceCount;
+  }
+
+  toDisplayString() {
+    const base = this.title + " " + this.startTime + " - " + this.endTime;
+    if (this.description) {
+      return base + " (" + this.description + ")";
+    }
+    return base;
+  }
+
+  toJSON() {
+    return {
+      id: this.id,
+      title: this.title,
+      description: this.description,
+      startTime: this.startTime,
+      endTime: this.endTime,
+      status: this.status,
+      attendees: this.attendees.slice(),
+      recurrence: this.recurrence,
+      recurrenceCount: this.recurrenceCount,
+    };
+  }
+
+  get id() {
+    return this._id;
+  }
+
+  set id(value) {
+    if (value === undefined || value === null || value === "") {
+      this._id = null;
+      return;
+    }
+    if (typeof value !== "string") {
+      throw new Error("id must be a string");
+    }
+    const trimmed = value.trim();
+    if (!trimmed) {
+      throw new Error("id must not be empty");
+    }
+    this._id = trimmed;
+  }
+
+  get title() {
+    return this._title;
+  }
+
+  set title(value) {
+    if (typeof value !== "string") {
+      throw new Error("Missing or invalid title");
+    }
+    const trimmed = value.trim();
+    if (!trimmed) {
+      throw new Error("Missing or invalid title");
+    }
+    if (trimmed.length > 120) {
+      throw new Error("Title is too long");
+    }
+    this._title = trimmed;
+  }
+
+  get description() {
+    return this._description;
+  }
+
+  set description(value) {
+    if (value === undefined || value === null) {
+      this._description = "";
+      return;
+    }
+    if (typeof value !== "string") {
+      throw new Error("Description must be a string");
+    }
+    this._description = value.trim();
+  }
+
+  get status() {
+    return this._status;
+  }
+
+  set status(value) {
+    if (value === undefined || value === null || value === "") {
+      this._status = "busy";
+      return;
+    }
+    if (typeof value !== "string" || !VALID_STATUSES.includes(value)) {
+      throw new Error("Invalid status");
+    }
+    this._status = value;
+  }
+
+  get attendees() {
+    return this._attendees;
+  }
+
+  set attendees(value) {
+    if (value === undefined || value === null) {
+      this._attendees = [];
+      return;
+    }
+    if (!Array.isArray(value)) {
+      throw new Error("Attendees must be an array");
+    }
+    const normalized = value
+      .map(entry => String(entry).trim())
+      .filter(entry => entry.length > 0);
+    this._attendees = normalized;
+  }
+
+  get startDateTime() {
+    return new Date(this._startDateTime.getTime());
+  }
+
+  set startDateTime(value) {
+    const parsed = Appointment.parseDateTimeLocal(value);
+    if (this._endDateTime && parsed >= this._endDateTime) {
+      throw new Error("startTime must be before endTime");
+    }
+    this._startDateTime = parsed;
+  }
+
+  get endDateTime() {
+    return new Date(this._endDateTime.getTime());
+  }
+
+  set endDateTime(value) {
+    const parsed = Appointment.parseDateTimeLocal(value);
+    if (this._startDateTime && parsed <= this._startDateTime) {
+      throw new Error("endTime must be after startTime");
+    }
+    this._endDateTime = parsed;
+  }
+
+  get startTime() {
+    return Appointment.formatDateTimeLocal(this._startDateTime);
+  }
+
+  get endTime() {
+    return Appointment.formatDateTimeLocal(this._endDateTime);
+  }
+
+  get recurrence() {
+    return this._recurrence;
+  }
+
+  set recurrence(value) {
+    if (value === undefined || value === null || value === "") {
+      this._recurrence = "none";
+      return;
+    }
+    if (typeof value !== "string" || !VALID_RECURRENCE.includes(value)) {
+      throw new Error("Invalid recurrence");
+    }
+    this._recurrence = value;
+    if (value === "none") {
+      this._recurrenceCount = 1;
+    }
+  }
+
+  get recurrenceCount() {
+    return this._recurrenceCount;
+  }
+
+  set recurrenceCount(value) {
+    if (value === undefined || value === null || value === "") {
+      this._recurrenceCount = 1;
+      return;
+    }
+    if (!Number.isInteger(value) || value < 1) {
+      throw new Error("Invalid recurrenceCount");
+    }
+    this._recurrenceCount = value;
+  }
+
+  get duration() {
+    return Math.round((this._endDateTime.getTime() - this._startDateTime.getTime()) / 60000);
+  }
+}
+
 let appointments = [];
 
-// If the file does not exist or the JSON is invalid, start with an empty array.
-// Errors are logged to the console so the developer knows something went wrong.
 function loadAppointments() {
   try {
     const text = fs.readFileSync(DATA_FILE, "utf8");
-    appointments = JSON.parse(text);
-    if (!Array.isArray(appointments)) {
+    const parsed = JSON.parse(text);
+    if (!Array.isArray(parsed)) {
       appointments = [];
+      return;
     }
+
+    const hydrated = [];
+    for (let i = 0; i < parsed.length; i += 1) {
+      try {
+        hydrated.push(Appointment.createFromJSON(parsed[i]));
+      } catch (error) {
+        console.log("Skipping invalid appointment at index " + String(i) + ": " + error.message);
+      }
+    }
+    appointments = hydrated;
   } catch (error) {
     console.log("Could not load appointments.json, starting with empty array.");
     appointments = [];
   }
 }
 
-// Pretty-print JSON (2-space indent) so the file is human-readable.
-// If writing fails, log the error but do not crash the server.
 function saveAppointments() {
   try {
-    const text = JSON.stringify(appointments, null, 2);
+    const text = JSON.stringify(appointments.map(appt => appt.toJSON()), null, 2);
     fs.writeFileSync(DATA_FILE, text, "utf8");
   } catch (error) {
     console.log("Failed to save appointments.json: " + error.message);
@@ -55,52 +415,13 @@ function sendText(response, statusCode, message) {
   response.end(message);
 }
 
-// Returns an error string if invalid, or null if valid.
-function validateAppointment(appt) {
-  if (typeof appt.title !== "string" || appt.title.trim() === "") {
-    return "Missing or invalid title";
+function validateAppointment(apptLike) {
+  try {
+    Appointment.createFromJSON(apptLike);
+    return null;
+  } catch (error) {
+    return error.message;
   }
-  if (typeof appt.startTime !== "string" || appt.startTime === "") {
-    return "Missing or invalid startTime";
-  }
-  if (typeof appt.endTime !== "string" || appt.endTime === "") {
-    return "Missing or invalid endTime";
-  }
-  if (appt.endTime <= appt.startTime) {
-    return "endTime must be after startTime";
-  }
-  if (appt.recurrence !== undefined) {
-    const validRecurrence = ["none", "daily", "weekly", "monthly"];
-    if (typeof appt.recurrence !== "string" || !validRecurrence.includes(appt.recurrence)) {
-      return "Invalid recurrence";
-    }
-  }
-  if (appt.recurrenceCount !== undefined) {
-    if (!Number.isInteger(appt.recurrenceCount) || appt.recurrenceCount < 1) {
-      return "Invalid recurrenceCount";
-    }
-  }
-  return null;
-}
-
-function parseDateTimeLocal(value) {
-  const [datePart, timePart] = value.split("T");
-  if (!datePart || !timePart) return null;
-  const [year, month, day] = datePart.split("-").map(Number);
-  const [hour, minute] = timePart.split(":").map(Number);
-  if ([year, month, day, hour, minute].some(Number.isNaN)) return null;
-  return new Date(year, month - 1, day, hour, minute, 0, 0);
-}
-
-function formatDateTimeLocal(dateObj) {
-  const pad = n => String(n).padStart(2, "0");
-  return (
-    String(dateObj.getFullYear())
-    + "-" + pad(dateObj.getMonth() + 1)
-    + "-" + pad(dateObj.getDate())
-    + "T" + pad(dateObj.getHours())
-    + ":" + pad(dateObj.getMinutes())
-  );
 }
 
 function buildRecurringAppointments(baseAppointment) {
@@ -108,19 +429,13 @@ function buildRecurringAppointments(baseAppointment) {
   const recurrenceCount = baseAppointment.recurrenceCount || 1;
 
   if (recurrence === "none" || recurrenceCount === 1) {
-    return [Object.assign({}, baseAppointment, { recurrence: "none", recurrenceCount: 1 })];
-  }
-
-  const start = parseDateTimeLocal(baseAppointment.startTime);
-  const end = parseDateTimeLocal(baseAppointment.endTime);
-  if (!start || !end) {
-    return [];
+    return [Appointment.createFromJSON(baseAppointment.toJSON())];
   }
 
   const recurringAppointments = [];
   for (let i = 0; i < recurrenceCount; i += 1) {
-    const startCopy = new Date(start.getTime());
-    const endCopy = new Date(end.getTime());
+    const startCopy = baseAppointment.startDateTime;
+    const endCopy = baseAppointment.endDateTime;
 
     if (recurrence === "daily") {
       startCopy.setDate(startCopy.getDate() + i);
@@ -133,107 +448,96 @@ function buildRecurringAppointments(baseAppointment) {
       endCopy.setMonth(endCopy.getMonth() + i);
     }
 
-    recurringAppointments.push(Object.assign({}, baseAppointment, {
-      startTime: formatDateTimeLocal(startCopy),
-      endTime: formatDateTimeLocal(endCopy),
-      recurrence,
-      recurrenceCount,
-    }));
+    recurringAppointments.push(new Appointment(
+      baseAppointment.title,
+      startCopy,
+      endCopy,
+      baseAppointment.status,
+      baseAppointment.description,
+      {
+        attendees: baseAppointment.attendees,
+        recurrence,
+        recurrenceCount,
+      }
+    ));
   }
 
   return recurringAppointments;
 }
 
-// Returns true if appt overlaps an existing busy or out-of-office appointment.
-// excludeId skips the appointment being replaced so it doesn't conflict with itself.
 const checkOverlap = (appt, excludeId = null) => {
   return appointments.some(existing => {
-    if (existing.id === excludeId) return false;
-    return appt.startTime < existing.endTime && appt.endTime > existing.startTime;
+    if (existing.id === excludeId) {
+      return false;
+    }
+    return appt.conflictsWith(existing);
   });
 };
 
-function updateAppointmentFull(id, updatedAppointment) {
-  // Locate the appointment by id
+function updateAppointmentFull(id, updatedAppointmentRaw) {
   const index = appointments.findIndex(a => a.id === id);
   if (index === -1) {
     return { error: "Appointment not found", status: 404 };
   }
 
-  // Validate the full appointment object
-  const validationError = validateAppointment(updatedAppointment);
-  if (validationError) {
-    return { error: validationError, status: 400 };
+  let updatedAppointment;
+  try {
+    updatedAppointment = Appointment.createFromJSON(updatedAppointmentRaw);
+  } catch (error) {
+    return { error: error.message, status: 400 };
   }
 
   const appointmentsToApply = buildRecurringAppointments(updatedAppointment);
-  if (!appointmentsToApply.length) {
-    return { error: "Invalid startTime/endTime for recurrence", status: 400 };
-  }
-
-  // Check for overlaps, excluding the appointment being replaced
   for (let i = 0; i < appointmentsToApply.length; i += 1) {
     if (checkOverlap(appointmentsToApply[i], id)) {
       return { error: "Appointment overlaps with an existing busy appointment", status: 409 };
     }
   }
 
-  // Replace the existing object, preserving the id
   const primaryAppointment = appointmentsToApply[0];
   primaryAppointment.id = id;
   appointments[index] = primaryAppointment;
 
-  // For recurring edits, add additional occurrences as separate appointments
   for (let i = 1; i < appointmentsToApply.length; i += 1) {
     const extraAppointment = appointmentsToApply[i];
     extraAppointment.id = String(Date.now()) + "-u" + String(i);
     appointments.push(extraAppointment);
   }
 
-  // Save updated data to appointments.json
   saveAppointments();
   return { data: primaryAppointment, status: 200 };
 }
 
 function updateAppointmentPartial(id, changes) {
-  // Locate the appointment by id
   const index = appointments.findIndex(a => a.id === id);
   if (index === -1) {
     return { error: "Appointment not found", status: 404 };
   }
 
-  // Merge only the provided fields with the existing appointment
-  const merged = Object.assign({}, appointments[index], changes);
+  const merged = Appointment.createFromJSON(appointments[index].toJSON());
+  try {
+    merged.update(changes);
+  } catch (error) {
+    return { error: error.message, status: 400 };
+  }
   merged.id = id;
 
-  // Validate the resulting appointment
-  const validationError = validateAppointment(merged);
-  if (validationError) {
-    return { error: validationError, status: 400 };
-  }
-
-  // Check for overlaps after the merge, excluding this appointment
   if (checkOverlap(merged, id)) {
     return { error: "Appointment overlaps with an existing busy appointment", status: 409 };
   }
 
-  // Save updated data to appointments.json
   appointments[index] = merged;
   saveAppointments();
   return { data: merged, status: 200 };
 }
 
 function deleteAppointment(id) {
-  // Locate the appointment by id
   const index = appointments.findIndex(a => a.id === id);
   if (index === -1) {
     return { error: "Appointment not found", status: 404 };
   }
 
-  // Remove the appointment from the array
   appointments.splice(index, 1);
-
-  // Save updated data to appointments.json
   saveAppointments();
   return { status: 200 };
 }
@@ -260,7 +564,7 @@ const server = http.createServer(function (request, response) {
   }
 
   if (request.method === "GET" && parsedUrl.pathname === "/appointments") {
-    sendJson(response, 200, appointments);
+    sendJson(response, 200, appointments.map(appt => appt.toJSON()));
   }
 
   else if (request.method === "POST" && parsedUrl.pathname === "/appointments") {
@@ -269,25 +573,22 @@ const server = http.createServer(function (request, response) {
       body += chunk;
     });
     request.on("end", function () {
-      let newAppointment;
+      let newAppointmentRaw;
       try {
-        newAppointment = JSON.parse(body);
+        newAppointmentRaw = JSON.parse(body);
       } catch (e) {
         sendText(response, 400, "Invalid JSON");
         return;
       }
 
-      const validationError = validateAppointment(newAppointment);
+      const validationError = validateAppointment(newAppointmentRaw);
       if (validationError) {
         sendText(response, 400, validationError);
         return;
       }
 
+      const newAppointment = Appointment.createFromJSON(newAppointmentRaw);
       const appointmentsToCreate = buildRecurringAppointments(newAppointment);
-      if (!appointmentsToCreate.length) {
-        sendText(response, 400, "Invalid startTime/endTime for recurrence");
-        return;
-      }
 
       for (let i = 0; i < appointmentsToCreate.length; i += 1) {
         if (checkOverlap(appointmentsToCreate[i])) {
@@ -301,7 +602,7 @@ const server = http.createServer(function (request, response) {
         const appointment = appointmentsToCreate[i];
         appointment.id = String(Date.now()) + "-" + String(i);
         appointments.push(appointment);
-        createdAppointments.push(appointment);
+        createdAppointments.push(appointment.toJSON());
       }
 
       saveAppointments();
@@ -325,7 +626,7 @@ const server = http.createServer(function (request, response) {
       if (result.error) {
         sendText(response, result.status, result.error);
       } else {
-        sendJson(response, result.status, result.data);
+        sendJson(response, result.status, result.data.toJSON());
       }
     });
   }
@@ -346,7 +647,7 @@ const server = http.createServer(function (request, response) {
       if (result.error) {
         sendText(response, result.status, result.error);
       } else {
-        sendJson(response, result.status, result.data);
+        sendJson(response, result.status, result.data.toJSON());
       }
     });
   }
