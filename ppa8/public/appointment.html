@@ -1,0 +1,144 @@
+<!-- public/appointment.html -->
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Provider Calendar</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <div id="message"></div>
+
+    <div id="navSection">
+      <button id="prevMonthBtn">&laquo; Prev</button>
+      <h1 id="monthTitle"></h1>
+      <button id="nextMonthBtn">Next &raquo;</button>
+    </div>
+
+    <div id="topPanel">
+      <section id="createSlotPanel">
+        <h2>Add Appointment</h2>
+        <label>
+          Title
+          <input type="text" id="titleInput" placeholder="Appointment title">
+        </label>
+        <label>
+          Description
+          <input type="text" id="descriptionInput" placeholder="Optional description">
+        </label>
+        <label>
+          Start time
+          <input type="datetime-local" id="startTimeInput">
+        </label>
+        <label>
+          End time
+          <input type="datetime-local" id="endTimeInput">
+        </label>
+        <label>
+          Status
+          <select id="statusInput">
+            <option value="busy">Busy</option>
+            <option value="free">Free</option>
+            <option value="out-of-office">Out of office</option>
+            <option value="tentative">Tentative</option>
+          </select>
+        </label>
+        <label>
+          Attendees (comma-separated)
+          <input type="text" id="attendeesInput" placeholder="e.g. Alice, Bob">
+        </label>
+        <label>
+          Recurrence
+          <select id="recurrenceInput">
+            <option value="none">Does not repeat</option>
+            <option value="daily">Daily</option>
+            <option value="weekly">Weekly</option>
+            <option value="monthly">Monthly</option>
+          </select>
+        </label>
+        <label>
+          Occurrences
+          <input type="number" id="recurrenceCountInput" min="1" value="1">
+        </label>
+        <button id="createAppmtButton">Add appointment</button>
+      </section>
+
+      <section id="allAppointmentsPanel">
+        <h2>All appointments</h2>
+        <div id="filterPanel">
+          <input type="text" id="searchInput" placeholder="Search by title or description">
+          <select id="filterStatus">
+            <option value="">All statuses</option>
+            <option value="busy">Busy</option>
+            <option value="free">Free</option>
+            <option value="out-of-office">Out of office</option>
+            <option value="tentative">Tentative</option>
+          </select>
+        </div>
+        <div id="calendar"></div>
+      </section>
+    </div>
+
+    <section>
+      <h2>Month view</h2>
+      <div id="calendarGrid"></div>
+    </section>
+
+    <!-- Modal dialog for viewing and editing an existing appointment -->
+    <div id="modalOverlay">
+      <div id="modalContent">
+        <h2>Edit Appointment</h2>
+        <label>
+          Title
+          <input type="text" id="modalTitle">
+        </label>
+        <label>
+          Description
+          <input type="text" id="modalDescription">
+        </label>
+        <label>
+          Start time
+          <input type="datetime-local" id="modalStartTime">
+        </label>
+        <label>
+          End time
+          <input type="datetime-local" id="modalEndTime">
+        </label>
+        <label>
+          Status
+          <select id="modalStatus">
+            <option value="busy">Busy</option>
+            <option value="free">Free</option>
+            <option value="out-of-office">Out of office</option>
+            <option value="tentative">Tentative</option>
+          </select>
+        </label>
+        <label>
+          Attendees (comma-separated)
+          <input type="text" id="modalAttendees">
+        </label>
+        <label>
+          Recurrence
+          <select id="modalRecurrence">
+            <option value="none">Does not repeat</option>
+            <option value="daily">Daily</option>
+            <option value="weekly">Weekly</option>
+            <option value="monthly">Monthly</option>
+          </select>
+        </label>
+        <label>
+          Occurrences
+          <input type="number" id="modalRecurrenceCount" min="1" value="1">
+        </label>
+        <div id="modalActions">
+          <button id="modalSaveBtn">Save (PUT)</button>
+          <button id="modalPatchStatusBtn">Update Status (PATCH)</button>
+          <button id="modalDeleteBtn">Delete</button>
+          <button id="modalCloseBtn">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="/provider.js"></script>
+  </body>
+</html>

@@ -1,0 +1,190 @@
+/* public/style.css */
+
+#calendarGrid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 8px;
+}
+
+.dayCell {
+  border: 1px solid #ccc;
+  padding: 8px;
+  min-height: 120px;
+}
+
+.dayNumber {
+  font-weight: bold;
+  margin-bottom: 6px;
+}
+
+.slotItem {
+  border: 1px solid #ddd;
+  padding: 4px;
+  margin-bottom: 4px;
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+/* Message styles controlled by className in JavaScript */
+.ok {
+  border: 1px solid #2e7d32;
+  padding: 8px;
+}
+
+.error {
+  border: 1px solid #c62828;
+  padding: 8px;
+}
+
+/* Bonus example: highlight today */
+.today {
+  outline: 3px solid #1976d2;
+}
+
+.ok {
+  border: 1px solid #2e7d32;
+  background-color: #e8f5e9;
+  color: #2e7d32;
+  padding: 8px;
+}
+
+.error {
+  border: 1px solid #c62828;
+  background-color: #ffebee;
+  color: #c62828;
+  padding: 8px;
+}
+
+.slotAvail {
+  border: 1px solid #2e7d32;
+  background-color: #e8f5e9;
+  padding: 4px;
+  margin-bottom: 4px;
+  cursor: pointer;
+}
+
+.slotBooked {
+  border: 1px solid #c62828;
+  background-color: #ffebee;
+  padding: 4px;
+  margin-bottom: 4px;
+  cursor: pointer;
+}
+
+.appointmentCard {
+  border: 1px solid #999;
+  background-color: #f9f9f9;
+  padding: 8px 12px;
+  margin-bottom: 6px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.appointmentCard button {
+  margin-left: 12px;
+  cursor: pointer;
+}
+
+/* Month navigation */
+#navSection {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+/* Status color coding */
+.status-busy {
+  border-color: #c62828;
+  background-color: #ffebee;
+}
+
+.status-free {
+  border-color: #2e7d32;
+  background-color: #e8f5e9;
+}
+
+.status-out-of-office {
+  border-color: #e65100;
+  background-color: #fff3e0;
+}
+
+.status-tentative {
+  border-color: #1565c0;
+  background-color: #e3f2fd;
+}
+
+/* Modal overlay */
+#modalOverlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  justify-content: center;
+  align-items: center;
+  z-index: 100;
+}
+
+#modalContent {
+  background: #fff;
+  padding: 24px;
+  border-radius: 6px;
+  min-width: 360px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+#modalContent label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+#modalActions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+#modalDeleteBtn {
+  background-color: #c62828;
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  padding: 6px 12px;
+}
+
+/* Side-by-side layout for form and appointments list */
+#topPanel {
+  display: flex;
+  align-items: flex-start;
+  gap: 32px;
+}
+
+#createSlotPanel {
+  width: 280px;
+  flex-shrink: 0;
+}
+
+#allAppointmentsPanel {
+  width: 650px;
+  flex-shrink: 0;
+}
+
+/* Form labels */
+#createSlotPanel label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+#createSlotPanel input,
+#createSlotPanel select,
+#modalContent input,
+#modalContent select {
+  width: 200px;
+}

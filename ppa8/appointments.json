@@ -1,0 +1,62 @@
+[
+  {
+    "id": "1",
+    "title": "Evening Check-in",
+    "description": "Daily end-of-day review",
+    "startTime": "2026-02-26T19:50",
+    "endTime": "2026-02-26T20:20",
+    "status": "busy",
+    "attendees": []
+  },
+  {
+    "id": "2",
+    "title": "Evening Check-in",
+    "description": "Daily end-of-day review",
+    "startTime": "2026-02-27T19:50",
+    "endTime": "2026-02-27T20:20",
+    "status": "busy",
+    "attendees": []
+  },
+  {
+    "title": "Team Sync",
+    "description": "Weekly team synchronization meeting",
+    "startTime": "2026-03-05T16:47",
+    "endTime": "2026-03-05T17:46",
+    "status": "tentative",
+    "attendees": [],
+    "id": "3"
+  },
+  {
+    "title": "test",
+    "description": "test recurrence",
+    "startTime": "2026-03-26T14:20",
+    "endTime": "2026-03-26T15:20",
+    "status": "busy",
+    "attendees": [],
+    "recurrence": "daily",
+    "recurrenceCount": 3,
+    "id": "1774552879269-0"
+  },
+  {
+    "title": "test",
+    "description": "test recurrence",
+    "startTime": "2026-03-27T14:20",
+    "endTime": "2026-03-27T15:20",
+    "status": "busy",
+    "attendees": [],
+    "recurrence": "daily",
+    "recurrenceCount": 3,
+    "id": "1774552879269-1"
+  },
+  {
+    "title": "test",
+    "description": "test recurrence",
+    "startTime": "2026-03-28T14:20",
+    "endTime": "2026-03-28T15:20",
+    "status": "busy",
+    "attendees": [],
+    "recurrence": "daily",
+    "recurrenceCount": 3,
+    "id": "1774552879269-2"
+  }
+]
