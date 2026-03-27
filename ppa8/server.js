@@ -201,8 +201,15 @@ class Appointment {
       this._id = null;
       return;
     }
+    if (typeof value === "number") {
+      if (!Number.isInteger(value) || value < 1) {
+        throw new Error("id must be a positive integer");
+      }
+      this._id = value;
+      return;
+    }
     if (typeof value !== "string") {
-      throw new Error("id must be a string");
+      throw new Error("id must be a string or positive integer");
     }
     const trimmed = value.trim();
     if (!trimmed) {
@@ -348,6 +355,17 @@ class Appointment {
 }
 
 let appointments = [];
+let nextAppointmentId = 1;
+
+function idsEqual(left, right) {
+  return String(left) === String(right);
+}
+
+function allocateAppointmentId() {
+  const id = nextAppointmentId;
+  nextAppointmentId += 1;
+  return id;
+}
 
 function loadAppointments() {
   try {
@@ -366,10 +384,18 @@ function loadAppointments() {
         console.log("Skipping invalid appointment at index " + String(i) + ": " + error.message);
       }
     }
+
+    for (let i = 0; i < all_appointments.length; i += 1) {
+      all_appointments[i].id = i + 1;
+    }
+
     appointments = all_appointments;
+    nextAppointmentId = appointments.length + 1;
+    saveAppointments();
   } catch (error) {
     console.log("Could not load appointments.json, starting with empty array.");
     appointments = [];
+    nextAppointmentId = 1;
   }
 }
 
@@ -456,7 +482,7 @@ function buildRecurringAppointments(baseAppointment) {
 
 const checkOverlap = (appt, excludeId = null) => {
   return appointments.some(existing => {
-    if (existing.id === excludeId) {
+    if (idsEqual(existing.id, excludeId)) {
       return false;
     }
     return appt.conflictsWith(existing);
@@ -464,7 +490,7 @@ const checkOverlap = (appt, excludeId = null) => {
 };
 
 function updateAppointmentFull(id, updatedAppointmentRaw) {
-  const index = appointments.findIndex(a => a.id === id);
+  const index = appointments.findIndex(a => idsEqual(a.id, id));
   if (index === -1) {
     return { error: "Appointment not found", status: 404 };
   }
@@ -484,12 +510,12 @@ function updateAppointmentFull(id, updatedAppointmentRaw) {
   }
 
   const primaryAppointment = appointmentsToApply[0];
-  primaryAppointment.id = id;
+  primaryAppointment.id = appointments[index].id;
   appointments[index] = primaryAppointment;
 
   for (let i = 1; i < appointmentsToApply.length; i += 1) {
     const extraAppointment = appointmentsToApply[i];
-    extraAppointment.id = String(Date.now()) + "-u" + String(i);
+    extraAppointment.id = allocateAppointmentId();
     appointments.push(extraAppointment);
   }
 
@@ -498,7 +524,7 @@ function updateAppointmentFull(id, updatedAppointmentRaw) {
 }
 
 function updateAppointmentPartial(id, changes) {
-  const index = appointments.findIndex(a => a.id === id);
+  const index = appointments.findIndex(a => idsEqual(a.id, id));
   if (index === -1) {
     return { error: "Appointment not found", status: 404 };
   }
@@ -510,7 +536,6 @@ function updateAppointmentPartial(id, changes) {
   } catch (error) {
     return { error: error.message, status: 400 };
   }
-  current.id = id;
 
   const affectsConflict = (
     Object.prototype.hasOwnProperty.call(changes, "startTime")
@@ -529,7 +554,7 @@ function updateAppointmentPartial(id, changes) {
 }
 
 function deleteAppointment(id) {
-  const index = appointments.findIndex(a => a.id === id);
+  const index = appointments.findIndex(a => idsEqual(a.id, id));
   if (index === -1) {
     return { error: "Appointment not found", status: 404 };
   }
@@ -597,7 +622,7 @@ const server = http.createServer(function (request, response) {
       const createdAppointments = [];
       for (let i = 0; i < appointmentsToCreate.length; i += 1) {
         const appointment = appointmentsToCreate[i];
-        appointment.id = String(Date.now()) + "-" + String(i);
+        appointment.id = allocateAppointmentId();
         appointments.push(appointment);
         createdAppointments.push(appointment.toJSON());
       }
