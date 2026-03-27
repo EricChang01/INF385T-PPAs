@@ -79,6 +79,14 @@ class Appointment {
       throw new Error("Appointment payload must be an object");
     }
 
+    const inferredKind = data.kind === "meeting"
+      || (data.kind === undefined && Array.isArray(data.attendees) && data.attendees.length > 0)
+      ? "meeting"
+      : "appointment";
+    if (inferredKind === "meeting") {
+      return Meeting.createFromJSON(data);
+    }
+
     const start = data.startDateTime !== undefined ? data.startDateTime : data.startTime;
     const end = data.endDateTime !== undefined ? data.endDateTime : data.endTime;
 
@@ -181,6 +189,7 @@ class Appointment {
   toJSON() {
     return {
       id: this.id,
+      kind: this.kind,
       title: this.title,
       description: this.description,
       startTime: this.startTime,
@@ -190,6 +199,10 @@ class Appointment {
       recurrence: this.recurrence,
       recurrenceCount: this.recurrenceCount,
     };
+  }
+
+  get kind() {
+    return "appointment";
   }
 
   get id() {
@@ -354,6 +367,39 @@ class Appointment {
   }
 }
 
+class Meeting extends Appointment {
+  static createFromJSON(data) {
+    if (!data || typeof data !== "object") {
+      throw new Error("Appointment payload must be an object");
+    }
+
+    const start = data.startDateTime !== undefined ? data.startDateTime : data.startTime;
+    const end = data.endDateTime !== undefined ? data.endDateTime : data.endTime;
+
+    return new Meeting(
+      data.title,
+      start,
+      end,
+      data.status !== undefined ? data.status : "busy",
+      data.description !== undefined ? data.description : "",
+      {
+        id: data.id,
+        attendees: data.attendees,
+        recurrence: data.recurrence,
+        recurrenceCount: data.recurrenceCount,
+      }
+    );
+  }
+
+  get kind() {
+    return "meeting";
+  }
+
+  toDisplayString() {
+    return "[Meeting] " + super.toDisplayString();
+  }
+}
+
 let appointments = [];
 let nextAppointmentId = 1;
 
@@ -442,6 +488,7 @@ function validateAppointment(apptLike) {
 function buildRecurringAppointments(baseAppointment) {
   const recurrence = baseAppointment.recurrence || "none";
   const recurrenceCount = baseAppointment.recurrenceCount || 1;
+  const AppointmentType = baseAppointment instanceof Meeting ? Meeting : Appointment;
 
   if (recurrence === "none" || recurrenceCount === 1) {
     return [Appointment.createFromJSON(baseAppointment.toJSON())];
@@ -463,7 +510,7 @@ function buildRecurringAppointments(baseAppointment) {
       endCopy.setMonth(endCopy.getMonth() + i);
     }
 
-    recurringAppointments.push(new Appointment(
+    recurringAppointments.push(new AppointmentType(
       baseAppointment.title,
       startCopy,
       endCopy,

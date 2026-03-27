@@ -52,6 +52,14 @@ class Appointment {
       throw new Error("Appointment payload must be an object");
     }
 
+    const inferredKind = data.kind === "meeting"
+      || (data.kind === undefined && Array.isArray(data.attendees) && data.attendees.length > 0)
+      ? "meeting"
+      : "appointment";
+    if (inferredKind === "meeting") {
+      return Meeting.createFromJSON(data);
+    }
+
     return new Appointment(
       data.title,
       data.startDateTime !== undefined ? data.startDateTime : data.startTime,
@@ -145,6 +153,7 @@ class Appointment {
   toRequestPayload() {
     return {
       id: this.id,
+      kind: this.kind,
       title: this.title,
       description: this.description,
       startTime: this.startTime,
@@ -154,6 +163,10 @@ class Appointment {
       recurrence: this.recurrence,
       recurrenceCount: this.recurrenceCount,
     };
+  }
+
+  get kind() {
+    return "appointment";
   }
 
   get duration() {
@@ -284,6 +297,36 @@ class Appointment {
       throw new Error("Occurrences must be at least 1");
     }
     this._recurrenceCount = next;
+  }
+}
+
+class Meeting extends Appointment {
+  static createFromJSON(data) {
+    if (!data || typeof data !== "object") {
+      throw new Error("Appointment payload must be an object");
+    }
+
+    return new Meeting(
+      data.title,
+      data.startDateTime !== undefined ? data.startDateTime : data.startTime,
+      data.endDateTime !== undefined ? data.endDateTime : data.endTime,
+      data.status !== undefined ? data.status : "busy",
+      data.description !== undefined ? data.description : "",
+      {
+        id: data.id,
+        attendees: data.attendees,
+        recurrence: data.recurrence,
+        recurrenceCount: data.recurrenceCount,
+      }
+    );
+  }
+
+  get kind() {
+    return "meeting";
+  }
+
+  toDisplayString() {
+    return "[Meeting] " + super.toDisplayString();
   }
 }
 
@@ -472,8 +515,7 @@ function saveAppointmentChanges() {
 
   let candidate;
   try {
-    candidate = Appointment.createFromJSON(currentAppointment.toRequestPayload());
-    candidate.update({
+    const payload = Object.assign({}, currentAppointment.toRequestPayload(), {
       title,
       description,
       startTime,
@@ -482,7 +524,9 @@ function saveAppointmentChanges() {
       attendees,
       recurrence,
       recurrenceCount,
+      kind: attendees.length > 0 ? "meeting" : "appointment",
     });
+    candidate = Appointment.createFromJSON(payload);
   } catch (error) {
     showMessage(error.message, "error");
     return;
@@ -590,7 +634,8 @@ document.getElementById("createAppmtButton").addEventListener("click", function 
 
   let appointment;
   try {
-    appointment = new Appointment(
+    const AppointmentType = attendees.length > 0 ? Meeting : Appointment;
+    appointment = new AppointmentType(
       title,
       startTime,
       endTime,

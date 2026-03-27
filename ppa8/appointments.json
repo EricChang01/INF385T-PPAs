@@ -1,6 +1,7 @@
 [
   {
-    "id": "1",
+    "id": 1,
+    "kind": "appointment",
     "title": "Evening Check-in",
     "description": "Daily end-of-day review",
     "startTime": "2026-02-26T19:50",
@@ -11,7 +12,8 @@
     "recurrenceCount": 1
   },
   {
-    "id": "2",
+    "id": 2,
+    "kind": "appointment",
     "title": "Evening Check-in",
     "description": "Daily end-of-day review",
     "startTime": "2026-02-27T19:50",
@@ -22,18 +24,20 @@
     "recurrenceCount": 1
   },
   {
-    "id": "3",
+    "id": 3,
+    "kind": "appointment",
     "title": "Team Sync",
     "description": "Weekly team synchronization meeting",
     "startTime": "2026-03-05T16:47",
     "endTime": "2026-03-05T17:46",
-    "status": "out-of-office",
+    "status": "busy",
     "attendees": [],
     "recurrence": "none",
     "recurrenceCount": 1
   },
   {
-    "id": "1774552879269-0",
+    "id": 4,
+    "kind": "appointment",
     "title": "test",
     "description": "test recurrence",
     "startTime": "2026-03-26T14:20",
@@ -44,7 +48,8 @@
     "recurrenceCount": 3
   },
   {
-    "id": "1774552879269-1",
+    "id": 5,
+    "kind": "appointment",
     "title": "test",
     "description": "test recurrence",
     "startTime": "2026-03-27T14:20",
@@ -55,7 +60,8 @@
     "recurrenceCount": 3
   },
   {
-    "id": "1774552879269-2",
+    "id": 6,
+    "kind": "appointment",
     "title": "test",
     "description": "test recurrence",
     "startTime": "2026-03-28T14:20",
@@ -64,5 +70,19 @@
     "attendees": [],
     "recurrence": "daily",
     "recurrenceCount": 3
+  },
+  {
+    "id": 7,
+    "kind": "meeting",
+    "title": "test meeting",
+    "description": "test meeting",
+    "startTime": "2026-03-26T19:27",
+    "endTime": "2026-03-26T20:27",
+    "status": "busy",
+    "attendees": [
+      "Alice"
+    ],
+    "recurrence": "none",
+    "recurrenceCount": 1
   }
 ]
