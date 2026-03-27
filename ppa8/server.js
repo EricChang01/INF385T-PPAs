@@ -503,29 +503,29 @@ function updateAppointmentPartial(id, changes) {
     return { error: "Appointment not found", status: 404 };
   }
 
-  const merged = Appointment.createFromJSON(appointments[index].toJSON());
+  const current = appointments[index];
+  const previousSnapshot = current.toJSON();
   try {
-    merged.update(changes);
+    current.update(changes);
   } catch (error) {
     return { error: error.message, status: 400 };
   }
-  merged.id = id;
+  current.id = id;
 
   const affectsConflict = (
     Object.prototype.hasOwnProperty.call(changes, "startTime")
     || Object.prototype.hasOwnProperty.call(changes, "startDateTime")
     || Object.prototype.hasOwnProperty.call(changes, "endTime")
     || Object.prototype.hasOwnProperty.call(changes, "endDateTime")
-    || Object.prototype.hasOwnProperty.call(changes, "status")
   );
 
-  if (affectsConflict && checkOverlap(merged, id)) {
+  if (affectsConflict && checkOverlap(current, id)) {
+    current._restore(previousSnapshot);
     return { error: "Appointment overlaps with an existing busy appointment", status: 409 };
   }
 
-  appointments[index] = merged;
   saveAppointments();
-  return { data: merged, status: 200 };
+  return { data: current, status: 200 };
 }
 
 function deleteAppointment(id) {
