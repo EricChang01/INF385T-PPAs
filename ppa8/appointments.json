@@ -3,10 +3,10 @@
     "id": 1,
     "kind": "appointment",
     "title": "Evening Check-in",
-    "description": "Daily end-of-day review",
+    "description": "patched from debug",
     "startTime": "2026-02-26T19:50",
     "endTime": "2026-02-26T20:20",
-    "status": "busy",
+    "status": "free",
     "attendees": [],
     "recurrence": "none",
     "recurrenceCount": 1
@@ -25,63 +25,43 @@
   },
   {
     "id": 3,
-    "kind": "appointment",
-    "title": "Team Sync",
-    "description": "Weekly team synchronization meeting",
-    "startTime": "2026-03-05T16:47",
-    "endTime": "2026-03-05T17:46",
+    "kind": "meeting",
+    "title": "Daily Sync",
+    "description": "daily sync",
+    "startTime": "2026-03-26T19:40",
+    "endTime": "2026-03-26T20:40",
     "status": "busy",
-    "attendees": [],
-    "recurrence": "none",
-    "recurrenceCount": 1
+    "attendees": [
+      "Alice",
+      "Bob"
+    ],
+    "recurrence": "daily",
+    "recurrenceCount": 2
   },
   {
     "id": 4,
-    "kind": "appointment",
-    "title": "test",
-    "description": "test recurrence",
-    "startTime": "2026-03-26T14:20",
-    "endTime": "2026-03-26T15:20",
-    "status": "free",
-    "attendees": [],
+    "kind": "meeting",
+    "title": "Daily Sync",
+    "description": "daily sync",
+    "startTime": "2026-03-27T19:40",
+    "endTime": "2026-03-27T20:40",
+    "status": "busy",
+    "attendees": [
+      "Alice",
+      "Bob"
+    ],
     "recurrence": "daily",
-    "recurrenceCount": 3
+    "recurrenceCount": 2
   },
   {
     "id": 5,
     "kind": "appointment",
-    "title": "test",
-    "description": "test recurrence",
-    "startTime": "2026-03-27T14:20",
-    "endTime": "2026-03-27T15:20",
-    "status": "busy",
+    "title": "Vacation",
+    "description": "Vacation",
+    "startTime": "2026-03-28T00:00",
+    "endTime": "2026-03-31T23:59",
+    "status": "out-of-office",
     "attendees": [],
-    "recurrence": "daily",
-    "recurrenceCount": 3
-  },
-  {
-    "id": 6,
-    "kind": "appointment",
-    "title": "test",
-    "description": "test recurrence",
-    "startTime": "2026-03-28T14:20",
-    "endTime": "2026-03-28T15:20",
-    "status": "busy",
-    "attendees": [],
-    "recurrence": "daily",
-    "recurrenceCount": 3
-  },
-  {
-    "id": 7,
-    "kind": "meeting",
-    "title": "test meeting",
-    "description": "test meeting",
-    "startTime": "2026-03-26T19:27",
-    "endTime": "2026-03-26T20:27",
-    "status": "busy",
-    "attendees": [
-      "Alice"
-    ],
     "recurrence": "none",
     "recurrenceCount": 1
   }

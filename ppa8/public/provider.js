@@ -548,12 +548,42 @@ function saveAppointmentChanges() {
 }
 
 function patchAppointmentStatus() {
+  const title = document.getElementById("modalTitle").value.trim();
+  const description = document.getElementById("modalDescription").value.trim();
+  const startTime = document.getElementById("modalStartTime").value;
+  const endTime = document.getElementById("modalEndTime").value;
   const status = document.getElementById("modalStatus").value;
+  const attendeesRaw = document.getElementById("modalAttendees").value;
+  const recurrence = document.getElementById("modalRecurrence").value;
+  const recurrenceCountRaw = Number(document.getElementById("modalRecurrenceCount").value);
+  const recurrenceCount = recurrence === "none" ? 1 : recurrenceCountRaw;
+  const attendees = attendeesRaw
+    ? attendeesRaw.split(",").map(a => a.trim()).filter(a => a)
+    : [];
+
+  const changes = {};
+  if (title !== currentAppointment.title) changes.title = title;
+  if (description !== currentAppointment.description) changes.description = description;
+  if (startTime !== currentAppointment.startTime) changes.startTime = startTime;
+  if (endTime !== currentAppointment.endTime) changes.endTime = endTime;
+  if (status !== currentAppointment.status) changes.status = status;
+
+  const currentAttendeesCsv = currentAppointment.attendees.join(",");
+  const nextAttendeesCsv = attendees.join(",");
+  if (nextAttendeesCsv !== currentAttendeesCsv) changes.attendees = attendees;
+
+  if (recurrence !== currentAppointment.recurrence) changes.recurrence = recurrence;
+  if (recurrenceCount !== currentAppointment.recurrenceCount) changes.recurrenceCount = recurrenceCount;
+
+  if (Object.keys(changes).length === 0) {
+    showMessage("No changes to patch", "error");
+    return;
+  }
 
   let candidate;
   try {
     candidate = Appointment.createFromJSON(currentAppointment.toRequestPayload());
-    candidate.update({ status });
+    candidate.update(changes);
   } catch (error) {
     showMessage(error.message, "error");
     return;
@@ -564,14 +594,14 @@ function patchAppointmentStatus() {
   xhr.setRequestHeader("Content-Type", "application/json");
   xhr.onload = function () {
     if (xhr.status === 200) {
-      showMessage("Status updated", "ok");
+      showMessage("Appointment patched", "ok");
       closeModal();
       refreshCalendar();
     } else {
       showMessage("Patch failed: " + xhr.responseText, "error");
     }
   };
-  xhr.send(JSON.stringify({ status: candidate.status }));
+  xhr.send(JSON.stringify(changes));
 }
 
 const deleteButtonHandler = () => {
