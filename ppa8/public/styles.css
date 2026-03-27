@@ -162,6 +162,8 @@
   display: flex;
   align-items: flex-start;
   gap: 32px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
 }
 
 #createSlotPanel {
@@ -169,9 +171,18 @@
   flex-shrink: 0;
 }
 
+#monthViewPanel {
+  flex: 1;
+  min-width: 620px;
+}
+
 #allAppointmentsPanel {
-  width: 650px;
-  flex-shrink: 0;
+  display: none;
+  max-width: 980px;
+}
+
+#allAppointmentsPanel.open {
+  display: block;
 }
 
 /* Form labels */
@@ -187,4 +198,8 @@
 #modalContent input,
 #modalContent select {
   width: 200px;
+}
+
+#showAllAppointmentsBtn {
+  margin-top: 10px;
 }

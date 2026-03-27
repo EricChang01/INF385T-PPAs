@@ -705,6 +705,21 @@ document.getElementById("nextMonthBtn").addEventListener("click", function () {
 
 document.getElementById("searchInput").addEventListener("input", filterAppointments);
 document.getElementById("filterStatus").addEventListener("change", filterAppointments);
+document.getElementById("showAllAppointmentsBtn").addEventListener("click", function () {
+  const panel = document.getElementById("allAppointmentsPanel");
+  const button = document.getElementById("showAllAppointmentsBtn");
+  const isOpen = panel.classList.contains("open");
+
+  if (isOpen) {
+    panel.classList.remove("open");
+    button.textContent = "Show All Appointments";
+    return;
+  }
+
+  panel.classList.add("open");
+  button.textContent = "Hide All Appointments";
+  panel.scrollIntoView({ behavior: "smooth", block: "start" });
+});
 
 document.getElementById("modalSaveBtn").addEventListener("click", saveAppointmentChanges);
 document.getElementById("modalPatchStatusBtn").addEventListener("click", patchAppointmentStatus);
